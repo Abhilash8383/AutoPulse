@@ -30,6 +30,10 @@ import {
   BarChart3,
   PanelLeftClose,
   PanelLeft,
+  UserCircle,
+  Filter,
+  CircleDollarSign,
+  CheckSquare,
 } from "lucide-react";
 
 const SIDEBAR_COLLAPSED_KEY = "moto-sidebar-collapsed";
@@ -365,6 +369,144 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                   <TooltipContent side="right" sideOffset={8}>Delivery Update</TooltipContent>
                 </Tooltip>
               )}
+
+              {/* CRM */}
+              <div className="pt-1.5 border-t w-full">
+                {!sidebarCollapsed && (
+                  <p className="text-sm text-muted-foreground px-2 py-1.5 uppercase tracking-wider">
+                    CRM
+                  </p>
+                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      prefetch={false}
+                      href="/dashboard/crm/contacts"
+                      onClick={() => setSidebarOpen(false)}
+                      className="w-full"
+                    >
+                      <Button
+                        variant={
+                          pathname === "/dashboard/crm/contacts" ||
+                          pathname?.startsWith("/dashboard/crm/contacts/")
+                            ? "secondary"
+                            : "ghost"
+                        }
+                        className={`w-full h-10 justify-start relative min-h-[40px] ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
+                      >
+                        <UserCircle
+                          className={`h-5 w-5 flex-shrink-0 ${sidebarCollapsed ? "lg:mr-0" : "mr-3"}`}
+                          style={{ color: "#1976B8" }}
+                        />
+                        <span className={`text-sm font-medium ${sidebarCollapsed ? "lg:hidden" : ""}`}>Contacts</span>
+                        {(pathname === "/dashboard/crm/contacts" || pathname?.startsWith("/dashboard/crm/contacts/")) && (
+                          <div
+                            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full"
+                            style={{ backgroundColor: "#1976B8" }}
+                          />
+                        )}
+                      </Button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>Contacts</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      prefetch={false}
+                      href="/dashboard/crm/leads"
+                      onClick={() => setSidebarOpen(false)}
+                      className="w-full"
+                    >
+                      <Button
+                        variant={
+                          pathname === "/dashboard/crm/leads" || pathname?.startsWith("/dashboard/crm/leads/")
+                            ? "secondary"
+                            : "ghost"
+                        }
+                        className={`w-full h-10 justify-start relative min-h-[40px] ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
+                      >
+                        <Filter
+                          className={`h-5 w-5 flex-shrink-0 ${sidebarCollapsed ? "lg:mr-0" : "mr-3"}`}
+                          style={{ color: "#1976B8" }}
+                        />
+                        <span className={`text-sm font-medium ${sidebarCollapsed ? "lg:hidden" : ""}`}>Leads</span>
+                        {(pathname === "/dashboard/crm/leads" || pathname?.startsWith("/dashboard/crm/leads/")) && (
+                          <div
+                            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full"
+                            style={{ backgroundColor: "#1976B8" }}
+                          />
+                        )}
+                      </Button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>Leads</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      prefetch={false}
+                      href="/dashboard/crm/deals"
+                      onClick={() => setSidebarOpen(false)}
+                      className="w-full"
+                    >
+                      <Button
+                        variant={
+                          pathname === "/dashboard/crm/deals" || pathname?.startsWith("/dashboard/crm/deals/")
+                            ? "secondary"
+                            : "ghost"
+                        }
+                        className={`w-full h-10 justify-start relative min-h-[40px] ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
+                      >
+                        <CircleDollarSign
+                          className={`h-5 w-5 flex-shrink-0 ${sidebarCollapsed ? "lg:mr-0" : "mr-3"}`}
+                          style={{ color: "#1976B8" }}
+                        />
+                        <span className={`text-sm font-medium ${sidebarCollapsed ? "lg:hidden" : ""}`}>Deals</span>
+                        {(pathname === "/dashboard/crm/deals" || pathname?.startsWith("/dashboard/crm/deals/")) && (
+                          <div
+                            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full"
+                            style={{ backgroundColor: "#1976B8" }}
+                          />
+                        )}
+                      </Button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>Deals</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      prefetch={false}
+                      href="/dashboard/crm/tasks"
+                      onClick={() => setSidebarOpen(false)}
+                      className="w-full"
+                    >
+                      <Button
+                        variant={
+                          pathname === "/dashboard/crm/tasks" || pathname?.startsWith("/dashboard/crm/tasks/")
+                            ? "secondary"
+                            : "ghost"
+                        }
+                        className={`w-full h-10 justify-start relative min-h-[40px] ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
+                      >
+                        <CheckSquare
+                          className={`h-5 w-5 flex-shrink-0 ${sidebarCollapsed ? "lg:mr-0" : "mr-3"}`}
+                          style={{ color: "#1976B8" }}
+                        />
+                        <span className={`text-sm font-medium ${sidebarCollapsed ? "lg:hidden" : ""}`}>Tasks</span>
+                        {(pathname === "/dashboard/crm/tasks" || pathname?.startsWith("/dashboard/crm/tasks/")) && (
+                          <div
+                            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full"
+                            style={{ backgroundColor: "#1976B8" }}
+                          />
+                        )}
+                      </Button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>Tasks</TooltipContent>
+                </Tooltip>
+              </div>
 
               {/* Settings */}
               {(hasPermission("settingsProfile") ||
