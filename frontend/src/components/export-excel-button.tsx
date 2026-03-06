@@ -27,7 +27,8 @@ export type ExportExcelType =
   | "visitors"
   | "digital-enquiry"
   | "field-inquiry"
-  | "delivery-tickets";
+  | "delivery-tickets"
+  | "contacts";
 
 type DateRange = "1m" | "3m" | "6m" | "1y" | "custom";
 
@@ -44,6 +45,7 @@ const TYPE_LABELS: Record<ExportExcelType, string> = {
   "digital-enquiry": "Digital Enquiry",
   "field-inquiry": "Field Inquiry",
   "delivery-tickets": "Delivery Update",
+  contacts: "Contacts",
 };
 
 function getDefaultCustomDates(): { startDate: string; endDate: string } {
