@@ -1,7 +1,27 @@
-# RabbitMQ for local development (backend expects amqp://admin:admin123@localhost:5672)
+# RabbitMQ + PostgreSQL for local development
+# Backend expects amqp://admin:admin123@localhost:5672
+# PostgreSQL: postgresql://moto:moto@localhost:5432/moto
 # Run from project root: docker compose up -d
-# Management UI: http://localhost:15672 (admin / admin123)
+# RabbitMQ Management UI: http://localhost:15672 (admin / admin123)
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: moto-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: moto
+      POSTGRES_PASSWORD: moto
+      POSTGRES_DB: moto
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moto -d moto"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: moto-rabbitmq
@@ -22,4 +42,5 @@ services:
     restart: unless-stopped
 
 volumes:
+  postgres_data:
   rabbitmq_data:
