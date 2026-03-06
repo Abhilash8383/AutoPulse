@@ -669,22 +669,18 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             <div className="border-t w-full min-w-0 pt-2 space-y-1.5 flex flex-col items-stretch">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button
+                  <Button
+                    variant="ghost"
                     type="button"
-                    className="w-full"
+                    className={`w-full h-10 justify-start ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
                     onClick={handleLogout}
                   >
-                    <Button
-                      variant="ghost"
-                      className={`w-full h-10 justify-start ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
-                    >
-                      <LogOut
-                        className={`h-5 w-5 flex-shrink-0 ${sidebarCollapsed ? "lg:mr-0" : "mr-3"}`}
-                        style={{ color: "#1976B8" }}
-                      />
-                      <span className={`text-sm font-medium ${sidebarCollapsed ? "lg:hidden" : ""}`}>Logout</span>
-                    </Button>
-                  </button>
+                    <LogOut
+                      className={`h-5 w-5 flex-shrink-0 ${sidebarCollapsed ? "lg:mr-0" : "mr-3"}`}
+                      style={{ color: "#1976B8" }}
+                    />
+                    <span className={`text-sm font-medium ${sidebarCollapsed ? "lg:hidden" : ""}`}>Logout</span>
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={8}>Logout</TooltipContent>
               </Tooltip>
@@ -701,8 +697,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           {/* Responsive container: max-width + mx-auto centers content with space on sides */}
           <div className="max-w-[1600px] mx-auto w-full">
             {/* Breadcrumb & Profile Box */}
-            <div className="mb-4 sm:mb-6 lg:mb-8 border bg-card rounded-lg px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 flex flex-row items-center justify-between shadow-sm gap-3 sm:gap-4">
-              <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3">
+            <div className="mb-4 sm:mb-6 lg:mb-8 border bg-card rounded-lg px-4 sm:px-5 md:px-6 lg:px-8 py-5 sm:py-6 min-h-[56px] sm:min-h-[60px] flex flex-row items-center justify-between shadow-sm gap-3 sm:gap-4">
+              <div className="flex-1 min-w-0 flex items-center gap-3 sm:gap-4">
                 {/* Desktop: sidebar toggle in top bar */}
                 <div className="hidden lg:flex shrink-0">
                   <Tooltip>
@@ -711,7 +707,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                         variant="ghost"
                         size="icon"
                         onClick={() => setSidebarCollapsed((c) => !c)}
-                        className="shrink-0 h-9 w-9"
+                        className="shrink-0 h-11 w-11"
                         aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                       >
                         {sidebarCollapsed ? (
