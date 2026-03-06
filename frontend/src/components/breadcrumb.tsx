@@ -41,14 +41,14 @@ export function Breadcrumb() {
   const breadcrumbs = generateBreadcrumbs();
 
   return (
-    <nav className="flex items-center space-x-1 sm:space-x-2 text-xs overflow-x-auto">
+    <nav className="flex items-center space-x-2 sm:space-x-3 text-sm sm:text-base overflow-x-auto">
       {breadcrumbs.map((breadcrumb, index) => (
         <div
           key={index}
-          className="flex items-center space-x-1 sm:space-x-2 shrink-0"
+          className="flex items-center space-x-2 sm:space-x-3 shrink-0"
         >
           {index > 0 && (
-            <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
           )}
           {index === breadcrumbs.length - 1 ? (
             <span className="text-foreground font-medium whitespace-nowrap">
