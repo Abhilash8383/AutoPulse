@@ -17,6 +17,7 @@ export function Breadcrumb() {
     "/dashboard/crm/contacts": "Contacts",
     "/dashboard/crm/contacts/add": "Add Contact",
     "/dashboard/crm/leads": "Leads",
+    "/dashboard/crm/leads/add": "Add Lead",
     "/dashboard/crm/deals": "Deals",
     "/dashboard/crm/tasks": "Tasks",
     "/dashboard/global-settings": "Settings",
