@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ArrowLeft } from "lucide-react";
 
 const COUNTRY_OPTIONS = [
   "India",
@@ -49,6 +50,16 @@ export default function AddContactPage() {
 
   return (
     <div className="space-y-6 w-full max-w-5xl mx-auto">
+      {/* Back button */}
+      <div>
+        <Button variant="ghost" size="sm" className="gap-2 -ml-2" asChild>
+          <Link href="/dashboard/crm/contacts">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Contacts
+          </Link>
+        </Button>
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-fluid-2xl font-bold text-foreground sm:text-2xl lg:text-3xl xl:text-4xl">
