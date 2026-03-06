@@ -15,6 +15,8 @@ Use these semantic names as Tailwind classes (e.g. `bg-background`, `text-foregr
 
 **Brand accent (exception):** `#1976B8` — use only for nav icons, active indicator, profile border via inline style.
 
+**Text size (locked):** App uses a size between small and medium. Root: `font-size: clamp(13px, 0.8125rem + 0.35vw, 15px)` in `globals.css`. Use `text-sm` for body, labels, buttons, tables, breadcrumb, sidebar; `text-sm sm:text-base` for inputs/selects where present. Do not change to smaller (text-xs) or full medium (text-base everywhere).
+
 ## Component paths
 
 ```
