@@ -63,7 +63,10 @@ Use **Breadcrumb** from `@/components/breadcrumb` and **ThemeSwitcherButtons** f
 ## Typography
 
 - **Fonts:** Geist Sans and Geist Mono (set in root layout). Do not introduce new font families.
-- **Sizes:** Prefer fluid classes from globals.css: `text-fluid-xs`, `text-fluid-sm`, `text-fluid-base`, `text-fluid-lg`, `text-fluid-xl`, `text-fluid-2xl`, `text-fluid-3xl`, `text-fluid-4xl`. Avoid one-off classes like `text-[14px]` or fixed `text-sm`/`text-base` unless matching existing component patterns (e.g. CardTitle uses `text-sm sm:text-base xl:text-lg`).
+- **App-wide text size (locked):** The whole app uses a size **between small and medium**. Do not change this.
+  - **Root:** In `globals.css`, `html` must keep `font-size: clamp(13px, 0.8125rem + 0.35vw, 15px);` (between small and middle).
+  - **UI components:** Buttons, inputs, tables, labels, tabs, cards, breadcrumb, and sidebar nav use `text-sm` (or `text-sm sm:text-base` for inputs/selects). New UI and new pages must use this same scale: prefer `text-sm` for body and controls, `text-base` only for emphasis or when matching existing patterns. Do not use `text-xs` for primary content; do not bump everything to `text-base` so the app stays in this “between small and middle” size.
+- **Sizes:** Prefer fluid classes from globals.css where applicable: `text-fluid-xs`, `text-fluid-sm`, `text-fluid-base`, `text-fluid-lg`, `text-fluid-xl`, `text-fluid-2xl`, `text-fluid-3xl`, `text-fluid-4xl`. For body/controls, use `text-sm` (or existing component defaults). Avoid one-off classes like `text-[14px]`; use semantic tokens and the locked scale above.
 
 ## Page structure
 
