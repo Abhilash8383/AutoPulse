@@ -119,8 +119,8 @@
 
   html {
     scroll-behavior: smooth;
-    /* Compact typography to match sidebar - whole app smaller */
-    font-size: clamp(12px, 0.75rem + 0.1vw, 14px);
+    /* Between small and medium: readable but not too large */
+    font-size: clamp(13px, 0.8125rem + 0.35vw, 15px);
   }
 
   body {

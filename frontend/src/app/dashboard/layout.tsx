@@ -176,7 +176,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                 href="https://prominds.digital/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mb-2 hidden md:flex items-center justify-center text-xs text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer px-2"
+                className="mb-2 hidden md:flex items-center justify-center text-sm text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer px-2"
               >
                 Powered by{" "}
                 <span className="font-semibold ml-1">Prominds Digital</span>
