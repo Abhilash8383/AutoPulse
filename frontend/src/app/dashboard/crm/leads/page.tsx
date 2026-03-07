@@ -126,7 +126,7 @@ export default function LeadsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
           <ExportExcelButton type="leads" variant="outline" />
-          <Button asChild style={{ backgroundColor: "#1976B8" }}>
+          <Button asChild className="bg-[#1976B8] hover:bg-[#1976B8]/90">
             <Link href="/dashboard/crm/leads/add">
               <Plus className="mr-2 h-4 w-4" />
               Add Lead
