@@ -37,12 +37,16 @@ import {
   Settings2,
   UserPlus,
   FileUp,
-  ArrowLeft,
+  Plus,
+  Filter,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import Pagination from "./components/Pagination";
 
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const PAGE_SIZE = 10;
+type ViewMode = "table" | "grid";
 
 export default function LeadsPage() {
   const [activeTab, setActiveTab] = useState("all");
@@ -50,6 +54,7 @@ export default function LeadsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
   const [pageLoading, setPageLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
@@ -109,48 +114,38 @@ export default function LeadsPage() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      {/* Back button */}
-      <div>
-        <Button variant="ghost" size="sm" className="gap-2 -ml-2" asChild>
-          <Link href="/dashboard">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
-          </Link>
-        </Button>
-      </div>
-
-      {/* Header */}
-      <div className="pb-2 border-b">
-        <h1 className="text-fluid-2xl font-bold text-foreground sm:text-2xl lg:text-3xl">
-          Manage Leads
-        </h1>
-        <p className="text-fluid-xs text-muted-foreground mt-1 sm:text-sm">
-          Browse, search, and manage leads.
-        </p>
-      </div>
-
-      {/* Action buttons */}
-      <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-        <ExportExcelButton type="leads" variant="outline" />
-        <Button asChild variant="default">
-          <Link href="/dashboard/crm/leads/add">
-            <UserPlus className="mr-2 h-4 w-4" />
-            Create Lead
-          </Link>
-        </Button>
-        <Button
-          onClick={() => toast.info("Import Leads — coming soon.")}
-          variant="default"
-        >
-          <FileUp className="mr-2 h-4 w-4" />
-          Import Leads
-        </Button>
+      {/* Header: title + subtitle left, primary action right */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-2 border-b">
+        <div>
+          <h1 className="text-fluid-2xl font-bold text-foreground sm:text-2xl lg:text-3xl">
+            Manage Leads
+          </h1>
+          <p className="text-fluid-xs text-muted-foreground mt-1 sm:text-sm">
+            Browse, search, and manage leads.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+          <ExportExcelButton type="leads" variant="outline" />
+          <Button asChild className="bg-[#1976B8] hover:bg-[#1976B8]/90">
+            <Link href="/dashboard/crm/leads/add">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Lead
+            </Link>
+          </Button>
+          <Button
+            onClick={() => toast.info("Import Leads — coming soon.")}
+            variant="outline"
+          >
+            <FileUp className="mr-2 h-4 w-4" />
+            Import
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-muted text-muted-foreground">
-          <TabsTrigger value="all">All Leads</TabsTrigger>
+          <TabsTrigger value="all">All leads</TabsTrigger>
           <TabsTrigger value="list">Lead List</TabsTrigger>
         </TabsList>
 
@@ -161,7 +156,7 @@ export default function LeadsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Search by name, email, phone, designation"
+                placeholder="Search By Lead Name"
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -185,16 +180,29 @@ export default function LeadsPage() {
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm">
-                <ChevronDown className="mr-1.5 h-4 w-4" />
+                <Filter className="mr-1.5 h-4 w-4" />
                 Filter
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => toast.info("Select All Pages — coming soon.")}
-              >
-                Select All Pages
-              </Button>
+              <div className="flex border rounded-md overflow-hidden">
+                <Button
+                  variant={viewMode === "table" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-8 w-8 rounded-none"
+                  onClick={() => setViewMode("table")}
+                  aria-label="Table view"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "grid" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-8 w-8 rounded-none"
+                  onClick={() => setViewMode("grid")}
+                  aria-label="List view"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="icon" aria-label="Column settings">
@@ -370,7 +378,7 @@ export default function LeadsPage() {
               </Select>
             </div>
             <p className="text-sm text-muted-foreground">
-              Total Results: {totalResults > 0 ? totalResults : "Not Available"}
+              Total Results: {totalResults}
             </p>
             <Pagination
               currentPage={currentPage}
