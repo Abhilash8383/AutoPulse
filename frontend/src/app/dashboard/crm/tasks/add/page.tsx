@@ -217,7 +217,7 @@ export default function AddTaskPage() {
                     Assignee
                   </Label>
                   <Input
-                    placeholder="info"
+                    placeholder="Search for user..."
                     value={assignee}
                     onChange={(e) => setAssignee(e.target.value)}
                     className="h-10 text-sm sm:text-base"
