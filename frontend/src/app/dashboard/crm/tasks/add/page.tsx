@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,35 @@ export default function AddTaskPage() {
     toast.success("Task saved (frontend only — no backend).");
   };
 
+  const statusRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const priorityRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const handleRadiogroupKeyDown = useCallback(
+    (
+      e: React.KeyboardEvent,
+      options: string[],
+      value: string,
+      setValue: (v: string) => void,
+      refs: React.MutableRefObject<(HTMLButtonElement | null)[]>
+    ) => {
+      const idx = options.indexOf(value);
+      if (idx === -1) return;
+      let nextIdx = idx;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        nextIdx = Math.min(idx + 1, options.length - 1);
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        nextIdx = Math.max(idx - 1, 0);
+      } else return;
+      if (nextIdx !== idx) {
+        setValue(options[nextIdx]);
+        refs.current[nextIdx]?.focus();
+      }
+    },
+    []
+  );
+
   return (
     <div className="space-y-6 w-full max-w-5xl mx-auto">
       <form id="add-task-form" onSubmit={handleSave}>
@@ -80,17 +109,30 @@ export default function AddTaskPage() {
               {/* Left column */}
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  <Label id="task-status-label" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Status
                   </Label>
-                  <div className="flex flex-wrap gap-1 p-1 rounded-lg border bg-muted/30">
-                    {STATUS_OPTIONS.map((s) => (
+                  <div
+                    role="radiogroup"
+                    aria-labelledby="task-status-label"
+                    className="flex flex-wrap gap-1 p-1 rounded-lg border bg-muted/30"
+                    onKeyDown={(e) =>
+                      handleRadiogroupKeyDown(e, STATUS_OPTIONS, status, setStatus, statusRefs)
+                    }
+                  >
+                    {STATUS_OPTIONS.map((s, i) => (
                       <button
                         key={s}
+                        ref={(el) => {
+                          statusRefs.current[i] = el;
+                        }}
                         type="button"
+                        role="radio"
+                        aria-checked={status === s}
+                        tabIndex={status === s ? 0 : -1}
                         onClick={() => setStatus(s)}
                         className={cn(
-                          "px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                          "px-4 py-2 rounded-md text-sm font-medium transition-colors min-h-[44px]",
                           status === s
                             ? "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
                             : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -190,17 +232,30 @@ export default function AddTaskPage() {
               {/* Right column */}
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  <Label id="task-priority-label" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Priority
                   </Label>
-                  <div className="flex flex-wrap gap-1 p-1 rounded-lg border bg-muted/30">
-                    {PRIORITY_OPTIONS.map((p) => (
+                  <div
+                    role="radiogroup"
+                    aria-labelledby="task-priority-label"
+                    className="flex flex-wrap gap-1 p-1 rounded-lg border bg-muted/30"
+                    onKeyDown={(e) =>
+                      handleRadiogroupKeyDown(e, PRIORITY_OPTIONS, priority, setPriority, priorityRefs)
+                    }
+                  >
+                    {PRIORITY_OPTIONS.map((p, i) => (
                       <button
                         key={p}
+                        ref={(el) => {
+                          priorityRefs.current[i] = el;
+                        }}
                         type="button"
+                        role="radio"
+                        aria-checked={priority === p}
+                        tabIndex={priority === p ? 0 : -1}
                         onClick={() => setPriority(p)}
                         className={cn(
-                          "px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                          "px-4 py-2 rounded-md text-sm font-medium transition-colors min-h-[44px]",
                           priority === p
                             ? "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
                             : "text-muted-foreground hover:text-foreground hover:bg-muted"
