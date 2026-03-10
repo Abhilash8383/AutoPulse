@@ -1,20 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -22,29 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Search,
-  X,
-  ChevronDown,
-  ChevronUp,
-  Settings2,
-  Plus,
-  Filter,
-  LayoutGrid,
-  List,
-} from "lucide-react";
+import { Search, X, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import Pagination from "../contacts/components/Pagination";
 
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const PAGE_SIZE = 10;
-
-type ViewMode = "table" | "grid";
 
 export default function DealsPage() {
   const [activeTab, setActiveTab] = useState("all");
@@ -52,23 +25,8 @@ export default function DealsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
   const [pageLoading, setPageLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("table");
-  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<string | null>("dealName");
   const [sortAsc, setSortAsc] = useState(true);
-  const [columnVisibility, setColumnVisibility] = useState<
-    Record<string, boolean>
-  >({
-    dealName: true,
-    productTags: true,
-    dealAmount: true,
-    priority: true,
-    dealStage: true,
-    closedDate: true,
-    type: true,
-    dealOwner: true,
-    referralSource: true,
-    pipeline: true,
-  });
 
   const deals: Array<{
     id: string;
