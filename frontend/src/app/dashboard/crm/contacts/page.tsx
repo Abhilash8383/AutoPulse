@@ -7,26 +7,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ExportExcelButton } from "@/components/export-excel-button";
 import Link from "next/link";
 import {
@@ -34,19 +20,13 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  Settings2,
-  UserPlus,
   FileUp,
   Plus,
-  Filter,
-  LayoutGrid,
-  List,
 } from "lucide-react";
 import Pagination from "./components/Pagination";
 
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const PAGE_SIZE = 10;
-type ViewMode = "table" | "grid";
 
 export default function ContactsPage() {
   const [activeTab, setActiveTab] = useState("all");
@@ -54,15 +34,8 @@ export default function ContactsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
   const [pageLoading, setPageLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("table");
-  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<string | null>("name");
   const [sortAsc, setSortAsc] = useState(true);
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({
-    name: true,
-    email: true,
-    phone: true,
-    designation: true,
-  });
 
   // Placeholder: no contacts data yet
   const contacts: Array<{ id: string; name: string; email: string; phone: string; designation: string }> = [];
@@ -83,7 +56,7 @@ export default function ContactsPage() {
   };
 
   const SortHeader = ({ label, sortKeyName }: { label: string; sortKeyName: string }) => (
-    <TableHead className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+    <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">
       <button
         type="button"
         className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
@@ -102,7 +75,7 @@ export default function ContactsPage() {
           </span>
         )}
       </button>
-    </TableHead>
+    </th>
   );
 
   return (
@@ -143,19 +116,19 @@ export default function ContactsPage() {
         </TabsList>
 
         <TabsContent value="all" className="mt-4 space-y-4">
-          {/* Search, Filter, Select All, Settings */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            <div className="relative flex-1 min-w-0">
+          {/* Search - same pattern as Daily Walkins / Digital Enquiry / Field Inquiry */}
+          <div className="relative">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Search By Contact Name"
+                placeholder="   Search by name, phone number, or email..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="pl-10 pr-10"
+                className="pl-14 pr-10"
               />
               {searchQuery && (
                 <Button
@@ -171,161 +144,76 @@ export default function ContactsPage() {
                 </Button>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Filter className="mr-1.5 h-4 w-4" />
-                Filter
-              </Button>
-              <div className="flex border rounded-md overflow-hidden">
-                <Button
-                  variant={viewMode === "table" ? "secondary" : "ghost"}
-                  size="icon"
-                  className="h-8 w-8 rounded-none"
-                  onClick={() => setViewMode("table")}
-                  aria-label="Table view"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "grid" ? "secondary" : "ghost"}
-                  size="icon"
-                  className="h-8 w-8 rounded-none"
-                  onClick={() => setViewMode("grid")}
-                  aria-label="List view"
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" aria-label="Column settings">
-                    <Settings2 className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuCheckboxItem
-                    checked={columnVisibility.name}
-                    onCheckedChange={(v) =>
-                      setColumnVisibility((prev) => ({ ...prev, name: !!v }))
-                    }
-                  >
-                    Name
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={columnVisibility.email}
-                    onCheckedChange={(v) =>
-                      setColumnVisibility((prev) => ({ ...prev, email: !!v }))
-                    }
-                  >
-                    Email
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={columnVisibility.phone}
-                    onCheckedChange={(v) =>
-                      setColumnVisibility((prev) => ({ ...prev, phone: !!v }))
-                    }
-                  >
-                    Phone
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuCheckboxItem
-                    checked={columnVisibility.designation}
-                    onCheckedChange={(v) =>
-                      setColumnVisibility((prev) => ({ ...prev, designation: !!v }))
-                    }
-                  >
-                    Designation
-                  </DropdownMenuCheckboxItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            {searchQuery && (
+              <p className="text-xs text-muted-foreground mt-2">
+                {contacts.length} result{contacts.length !== 1 ? "s" : ""} found
+              </p>
+            )}
           </div>
 
-          {/* Table */}
+          {/* Table - same structure as Daily Walkins / Digital Enquiry / Field Inquiry */}
           <Card>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="w-10 py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      <input
-                        type="checkbox"
-                        className="rounded border-input"
-                        aria-label="Select all"
-                      />
-                    </TableHead>
-                    {columnVisibility.name && (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="w-10 py-3 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        <input
+                          type="checkbox"
+                          className="rounded border-input"
+                          aria-label="Select all"
+                        />
+                      </th>
                       <SortHeader label="Name" sortKeyName="name" />
-                    )}
-                    {columnVisibility.email && (
                       <SortHeader label="Email" sortKeyName="email" />
-                    )}
-                    {columnVisibility.phone && (
                       <SortHeader label="Phone" sortKeyName="phone" />
-                    )}
-                    {columnVisibility.designation && (
                       <SortHeader label="Designation" sortKeyName="designation" />
-                    )}
-                    <TableHead className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Actions
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {contacts.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={
-                          2 +
-                          Object.values(columnVisibility).filter(Boolean).length
-                        }
-                        className="py-12 text-center text-muted-foreground text-sm"
-                      >
-                        No results found.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    contacts.map((contact) => (
-                      <TableRow
-                        key={contact.id}
-                        className="border-b hover:bg-muted/30 transition-colors"
-                      >
-                        <TableCell className="py-3 px-4">
-                          <input
-                            type="checkbox"
-                            className="rounded border-input"
-                            aria-label={`Select ${contact.name}`}
-                          />
-                        </TableCell>
-                        {columnVisibility.name && (
-                          <TableCell className="py-3 px-4 text-sm">
-                            {contact.name}
-                          </TableCell>
-                        )}
-                        {columnVisibility.email && (
-                          <TableCell className="py-3 px-4 text-sm">
-                            {contact.email}
-                          </TableCell>
-                        )}
-                        {columnVisibility.phone && (
-                          <TableCell className="py-3 px-4 text-sm">
-                            {contact.phone}
-                          </TableCell>
-                        )}
-                        {columnVisibility.designation && (
-                          <TableCell className="py-3 px-4 text-sm">
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        ACTIONS
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {contacts.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="py-12 text-center text-muted-foreground text-sm"
+                        >
+                          No results found.
+                        </td>
+                      </tr>
+                    ) : (
+                      contacts.map((contact) => (
+                        <tr
+                          key={contact.id}
+                          className="border-b hover:bg-muted/30 transition-colors"
+                        >
+                          <td className="py-3 px-4">
+                            <input
+                              type="checkbox"
+                              className="rounded border-input"
+                              aria-label={`Select ${contact.name}`}
+                            />
+                          </td>
+                          <td className="py-3 px-4 text-sm">{contact.name}</td>
+                          <td className="py-3 px-4 text-sm">{contact.email}</td>
+                          <td className="py-3 px-4 text-sm">{contact.phone}</td>
+                          <td className="py-3 px-4 text-sm">
                             {contact.designation}
-                          </TableCell>
-                        )}
-                        <TableCell className="py-3 px-4">
-                          <Button variant="ghost" size="sm">
-                            Actions
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                          </td>
+                          <td className="py-3 px-4">
+                            <Button variant="ghost" size="sm">
+                              Actions
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </CardContent>
           </Card>
 
