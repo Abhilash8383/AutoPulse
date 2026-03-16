@@ -13,7 +13,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, X, ChevronDown, ChevronUp, Plus } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { Search, X, ChevronDown, ChevronUp, Plus, Filter, LayoutGrid, List, Settings2 } from "lucide-react";
 import Pagination from "../contacts/components/Pagination";
 
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
@@ -27,6 +41,19 @@ export default function DealsPage() {
   const [pageLoading, setPageLoading] = useState(false);
   const [sortKey, setSortKey] = useState<string | null>("dealName");
   const [sortAsc, setSortAsc] = useState(true);
+  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [columnVisibility, setColumnVisibility] = useState({
+    dealName: true,
+    productTags: true,
+    dealAmount: true,
+    priority: true,
+    dealStage: true,
+    closedDate: true,
+    type: true,
+    dealOwner: true,
+    referralSource: true,
+    pipeline: true,
+  });
 
   const deals: Array<{
     id: string;
