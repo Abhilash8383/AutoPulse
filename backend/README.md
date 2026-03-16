@@ -104,8 +104,26 @@ The server will run on `http://localhost:8000` by default.
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run prisma:generate` - Generate Prisma client
-- `npm run prisma:migrate` - Run database migrations
+- `npm run prisma:dbpush` - Push schema to DB (no migration history)
+- `npm run prisma:migrate` - Create/apply migrations (use this for new schema changes)
+- `npm run prisma:migrate:deploy` - Apply migrations in production
 - `npm run prisma:studio` - Open Prisma Studio
+- `npm run backfill:contacts` - Link existing Visitor/Enquiry rows to Contact (idempotent)
+- `npm run coverage:contacts` - Report Contact linkage coverage (linked vs total)
+
+## CRM Contacts – What to do next
+
+1. **Run backfill (if not yet done)**  
+   `pnpm run backfill:contacts` (or `npm run backfill:contacts`). Safe to run multiple times.
+
+2. **Monitor coverage**  
+   `pnpm run coverage:contacts` to see how many Visitor / DigitalEnquiry / FieldInquiry rows have `contactId` set. Aim for ≥ 98% before Phase 6.
+
+3. **Just monitor (for now) — do not rush Phase 6**  
+   Wait at least 1–2 weeks of production usage. Confirm: no missing contacts, no bugs, dual-write stable. Then consider Phase 6 (deprecating duplicated person fields on Visitor/DigitalEnquiry/FieldInquiry in favor of `contactId`; see comment above `Contact` in `prisma/schema.prisma`).
+
+4. **Use migrations from now**  
+   For new schema changes, use `pnpm run prisma:migrate` (creates/applies migrations) instead of `prisma db push`. Use `prisma:migrate:deploy` in production.
 
 ## Production Deployment
 

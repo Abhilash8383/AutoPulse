@@ -4,6 +4,7 @@ import { whatsappClient } from "../lib/whatsapp";
 import { authenticate, asyncHandler } from "../middleware/auth";
 import { checkPermission } from "../middleware/permissions";
 import { PERMISSIONS } from "../config/permissions";
+import { getVisitorPhone } from "../utils/contact-resolver";
 
 const router: Router = Router();
 
@@ -111,7 +112,7 @@ router.post(
         },
       },
       include: {
-        visitor: true,
+        visitor: { include: { contact: true } },
       },
     });
 
@@ -128,7 +129,7 @@ router.post(
         feedback: feedback || null,
       },
       include: {
-        visitor: true,
+        visitor: { include: { contact: true } },
         testDrives: {
           include: {
             model: {
@@ -166,10 +167,11 @@ router.post(
     let messageStatus = "not_sent";
     let messageError = null;
 
-    if (template && session.visitor.whatsappNumber) {
+    const visitorPhone = getVisitorPhone(session.visitor);
+    if (template && visitorPhone) {
       try {
         await whatsappClient.sendTemplate({
-          contactNumber: session.visitor.whatsappNumber,
+          contactNumber: visitorPhone,
           templateName: template.templateName,
           templateId: template.templateId,
           templateLanguage: template.language,

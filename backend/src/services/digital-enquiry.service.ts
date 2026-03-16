@@ -1,4 +1,5 @@
 import { DigitalEnquiryRepository } from "../repositories/digital-enquiry.repository";
+import { ContactRepository } from "../repositories/contact.repository";
 import { CreateDigitalEnquiryDto } from "../dto/request/create-digital-enquiry.dto";
 import { UpdateLeadScopeDto } from "../dto/request/update-lead-scope.dto";
 import {
@@ -14,14 +15,17 @@ import { whatsappClient } from "../lib/whatsapp";
 import { formatPhoneNumber } from "../utils/phone-formatter";
 import { validateRequiredColumns, parseExcelDate } from "../utils/excel-parser";
 import { BulkUploadRequest, ExcelRow } from "../dto/request/bulk-upload.dto";
+import { resolveDisplay } from "../utils/contact-resolver";
 import { EXCEL, LEAD_SCOPE, PAGINATION } from "../config/constants";
 import prisma from "../lib/db";
 
 export class DigitalEnquiryService {
   private repository: DigitalEnquiryRepository;
+  private contactRepository: ContactRepository;
 
   constructor() {
     this.repository = new DigitalEnquiryRepository();
+    this.contactRepository = new ContactRepository();
   }
 
   /**
@@ -31,26 +35,20 @@ export class DigitalEnquiryService {
     data: CreateDigitalEnquiryDto,
     dealershipId: string,
   ): Promise<CreateDigitalEnquiryResponse> {
-    // Check if enquiry already exists
-    const existingEnquiry =
-      await this.repository.findByWhatsAppNumberAndDealership(
-        data.whatsappNumber,
-        dealershipId,
-      );
-
-    // Create digital enquiry
-    const enquiry = await this.repository.createEnquiry({
+    const contact = await this.contactRepository.findOrCreate(dealershipId, {
       firstName: data.firstName,
       lastName: data.lastName,
       whatsappNumber: data.whatsappNumber,
-      email: data.email || null,
-      address: data.address || null,
+      email: data.email ?? undefined,
+      address: data.address ?? undefined,
+    });
+
+    const enquiry = await this.repository.createEnquiry({
+      contact: { connect: { id: contact.id } },
+      dealership: { connect: { id: dealershipId } },
       reason: data.reason,
       leadScope: data.leadScope || LEAD_SCOPE.WARM,
       whatsappContactId: null,
-      dealership: {
-        connect: { id: dealershipId },
-      },
       leadSource: data.leadSourceId
         ? { connect: { id: data.leadSourceId } }
         : undefined,
@@ -60,7 +58,6 @@ export class DigitalEnquiryService {
       variant: data.interestedVariantId
         ? { connect: { id: data.interestedVariantId } }
         : undefined,
-      // Store text fields for bulk upload when IDs are not available
       sourceText: data.sourceText || null,
       modelText: data.modelText || null,
     });
@@ -99,12 +96,13 @@ export class DigitalEnquiryService {
       messageError = "Template ID or Template Name not configured";
     }
 
+    const resolved = resolveDisplay(enquiry);
     return {
       success: true,
       enquiry: {
         id: enquiry.id,
-        firstName: enquiry.firstName,
-        lastName: enquiry.lastName,
+        firstName: resolved.firstName,
+        lastName: resolved.lastName,
       },
       message: {
         status: messageStatus,
@@ -141,7 +139,7 @@ export class DigitalEnquiryService {
     const hasMore = offset + take < total;
 
     return {
-      enquiries,
+      enquiries: enquiries.map((e) => resolveDisplay(e)),
       hasMore,
       total,
       skip: offset,
@@ -177,7 +175,7 @@ export class DigitalEnquiryService {
 
     return {
       success: true,
-      enquiry: updatedEnquiry,
+      enquiry: resolveDisplay(updatedEnquiry),
     };
   }
 
@@ -321,19 +319,19 @@ export class DigitalEnquiryService {
             dealershipId,
           );
 
-        // Create digital enquiry
-        const enquiry = await this.repository.createEnquiry({
+        const contact = await this.contactRepository.findOrCreate(dealershipId, {
           firstName,
           lastName,
           whatsappNumber,
-          email: null,
-          address: address || null,
+          address: address ?? undefined,
+        });
+
+        const enquiry = await this.repository.createEnquiry({
+          contact: { connect: { id: contact.id } },
+          dealership: { connect: { id: dealershipId } },
           reason: modelName || "Bulk imported enquiry",
           leadScope: LEAD_SCOPE.WARM,
           whatsappContactId: null,
-          dealership: {
-            connect: { id: dealershipId },
-          },
           leadSource: leadSourceId
             ? { connect: { id: leadSourceId } }
             : undefined,
@@ -341,7 +339,6 @@ export class DigitalEnquiryService {
             ? { connect: { id: matchedModel.id } }
             : undefined,
           variant: undefined,
-          // Store text values when no match found
           modelText: matchedModel ? null : modelName,
           sourceText: sourceText,
         });

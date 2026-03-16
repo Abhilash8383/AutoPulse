@@ -2,6 +2,17 @@ import { Prisma } from "@prisma/client";
 import { BaseRepository } from "./base.repository";
 import { VisitorWithRelations } from "../dto/response/visitor.response";
 import { normalizePhoneNumber } from "../utils/phone-formatter";
+import { getVisitorPhone } from "../utils/contact-resolver";
+
+const visitorInclude = {
+  contact: true,
+  sessions: { orderBy: { createdAt: "desc" as const } },
+  interests: {
+    include: {
+      model: { include: { category: true } },
+    },
+  },
+};
 
 export class VisitorRepository extends BaseRepository<VisitorWithRelations> {
   /**
@@ -11,29 +22,9 @@ export class VisitorRepository extends BaseRepository<VisitorWithRelations> {
     id: string,
     dealershipId: string
   ): Promise<VisitorWithRelations | null> {
-    return this.findOne(
-      this.prisma.visitor,
-      {
-        id,
-        dealershipId,
-      },
-      {
-        include: {
-          sessions: {
-            orderBy: { createdAt: "desc" },
-          },
-          interests: {
-            include: {
-              model: {
-                include: {
-                  category: true,
-                },
-              },
-            },
-          },
-        },
-      }
-    );
+    return this.findOne(this.prisma.visitor, { id, dealershipId }, {
+      include: visitorInclude,
+    });
   }
 
   /**
@@ -47,27 +38,11 @@ export class VisitorRepository extends BaseRepository<VisitorWithRelations> {
     const allVisitors = await this.findMany(
       this.prisma.visitor,
       { dealershipId },
-      {
-        include: {
-          sessions: {
-            orderBy: { createdAt: "desc" },
-          },
-          interests: {
-            include: {
-              model: {
-                include: {
-                  category: true,
-                },
-              },
-            },
-          },
-        },
-      }
+      { include: visitorInclude }
     );
-
     return (
       allVisitors.find(
-        (v) => normalizePhoneNumber(v.whatsappNumber) === normalizedPhone
+        (v) => normalizePhoneNumber(getVisitorPhone(v)) === normalizedPhone
       ) || null
     );
   }
@@ -89,31 +64,16 @@ export class VisitorRepository extends BaseRepository<VisitorWithRelations> {
       this.prisma.visitor,
       { dealershipId },
       {
-        include: {
-          sessions: {
-            orderBy: { createdAt: "desc" },
-          },
-          interests: {
-            include: {
-              model: {
-                include: {
-                  category: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
+        include: visitorInclude,
+        orderBy: { createdAt: "desc" },
       }
     );
 
-    // Deduplicate by phone number
+    // Deduplicate by phone number (from contact or legacy field)
     const visitorMap = new Map<string, VisitorWithRelations>();
 
     for (const visitor of allVisitors) {
-      const normalizedPhone = normalizePhoneNumber(visitor.whatsappNumber);
+      const normalizedPhone = normalizePhoneNumber(getVisitorPhone(visitor));
       const existing = visitorMap.get(normalizedPhone);
 
       if (!existing) {
@@ -184,10 +144,9 @@ export class VisitorRepository extends BaseRepository<VisitorWithRelations> {
   async createVisitor(
     data: Prisma.VisitorCreateInput
   ): Promise<VisitorWithRelations> {
-    return this.create(
-      this.prisma.visitor,
-      data
-    ) as Promise<VisitorWithRelations>;
+    return this.create(this.prisma.visitor, data, {
+      include: visitorInclude,
+    }) as Promise<VisitorWithRelations>;
   }
 
   /**
@@ -198,20 +157,7 @@ export class VisitorRepository extends BaseRepository<VisitorWithRelations> {
     data: Prisma.VisitorUpdateInput
   ): Promise<VisitorWithRelations> {
     return super.update(this.prisma.visitor, { id }, data, {
-      include: {
-        sessions: {
-          orderBy: { createdAt: "desc" },
-        },
-        interests: {
-          include: {
-            model: {
-              include: {
-                category: true,
-              },
-            },
-          },
-        },
-      },
+      include: visitorInclude,
     }) as Promise<VisitorWithRelations>;
   }
 }

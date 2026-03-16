@@ -38,6 +38,7 @@ model Organization {
   // Relations - everything belongs to organization
   users          User[]
   featureToggles OrgFeatureToggle[]
+  dealerships    Dealership[]
 
   @@index([slug])
   @@index([isActive])
@@ -84,6 +85,7 @@ model Dealership {
   updatedAt      DateTime @updatedAt
   showroomNumber String?
   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   deliveryTickets   DeliveryTicket[]
   digitalEnquiries  DigitalEnquiry[]
@@ -93,8 +95,40 @@ model Dealership {
   vehicleCategories VehicleCategory[]
   visitors          Visitor[]
   whatsappTemplates WhatsAppTemplate[]
+  contacts          Contact[]
 
   @@index([organizationId])
+}
+
+// ============================================================
+// CONTACT MODEL (Canonical CRM person - sourced from Walkins/Enquiries)
+// ============================================================
+// Future cleanup (after parity): consider deprecating duplicated
+// person fields (firstName, lastName, whatsappNumber, etc.) on
+// Visitor, DigitalEnquiry, FieldInquiry in favor of contactId-only.
+// ============================================================
+model Contact {
+  id                    String   @id @default(cuid())
+  firstName             String
+  lastName              String
+  whatsappNumber        String
+  normalizedWhatsappNumber String? // For fast lookup by normalized phone; set on create/update
+  email                 String?
+  address               String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  dealershipId String?
+  dealership   Dealership? @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+
+  visitors        Visitor[]
+  digitalEnquiries DigitalEnquiry[]
+  fieldInquiries   FieldInquiry[]
+
+  @@index([dealershipId])
+  @@index([whatsappNumber])
+  @@index([dealershipId, normalizedWhatsappNumber])
+  @@unique([dealershipId, whatsappNumber])
 }
 
 model User {
@@ -177,9 +211,9 @@ model VehicleVariant {
 
 model Visitor {
   id                String   @id @default(cuid())
-  firstName         String
-  lastName          String
-  whatsappNumber    String
+  firstName         String?  // deprecated: prefer contact.firstName
+  lastName          String?  // deprecated: prefer contact.lastName
+  whatsappNumber    String?  // deprecated: prefer contact.whatsappNumber
   email             String?
   address           String?
   whatsappContactId String?
@@ -188,12 +222,15 @@ model Visitor {
 
   dealershipId String?
   dealership   Dealership? @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  contactId    String?
+  contact      Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
   interests VisitorInterest[]
   sessions  VisitorSession[]
 
   @@index([dealershipId])
   @@index([whatsappNumber])
+  @@index([contactId])
 }
 
 model VisitorSession {
@@ -285,9 +322,9 @@ model LeadSource {
 
 model DigitalEnquiry {
   id                  String   @id @default(cuid())
-  firstName           String
-  lastName            String
-  whatsappNumber      String
+  firstName           String?  // deprecated: prefer contact
+  lastName            String?  // deprecated: prefer contact
+  whatsappNumber      String?  // deprecated: prefer contact
   email               String?
   address             String?
   reason              String
@@ -303,6 +340,8 @@ model DigitalEnquiry {
 
   dealershipId String?
   dealership   Dealership? @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  contactId    String?
+  contact      Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
   model      VehicleModel?           @relation(fields: [interestedModelId], references: [id])
   variant    VehicleVariant?         @relation(fields: [interestedVariantId], references: [id])
@@ -312,6 +351,7 @@ model DigitalEnquiry {
   @@index([dealershipId])
   @@index([whatsappNumber])
   @@index([leadSourceId])
+  @@index([contactId])
 }
 
 model DigitalEnquirySession {
@@ -376,9 +416,9 @@ model ScheduledMessage {
 
 model FieldInquiry {
   id                  String   @id @default(cuid())
-  firstName           String
-  lastName            String
-  whatsappNumber      String
+  firstName           String?  // deprecated: prefer contact
+  lastName            String?  // deprecated: prefer contact
+  whatsappNumber      String?  // deprecated: prefer contact
   email               String?
   address             String?
   reason              String
@@ -392,6 +432,8 @@ model FieldInquiry {
 
   dealershipId String?
   dealership   Dealership? @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  contactId    String?
+  contact      Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
   model      VehicleModel?         @relation(fields: [interestedModelId], references: [id])
   variant    VehicleVariant?       @relation(fields: [interestedVariantId], references: [id])
@@ -401,6 +443,7 @@ model FieldInquiry {
   @@index([dealershipId])
   @@index([whatsappNumber])
   @@index([leadSourceId])
+  @@index([contactId])
 }
 
 model FieldInquirySession {

@@ -1,0 +1,180 @@
+import { Prisma } from "@prisma/client";
+import { BaseRepository } from "./base.repository";
+import { normalizePhoneNumber } from "../utils/phone-formatter";
+
+export interface ContactPayload {
+  firstName: string;
+  lastName: string;
+  whatsappNumber: string;
+  email?: string | null;
+  address?: string | null;
+}
+
+/**
+ * Contact repository for canonical CRM person records.
+ * Used for find-or-create by tenant + normalized phone and for backfill.
+ */
+export class ContactRepository extends BaseRepository<Prisma.ContactGetPayload<object>> {
+  /**
+   * Find contact by dealership and normalized WhatsApp number.
+   * Uses normalizedWhatsappNumber for indexed lookup when set; falls back to in-memory
+   * for legacy rows and backfills normalizedWhatsappNumber when a match is found.
+   */
+  async findByDealershipAndPhone(
+    dealershipId: string,
+    whatsappNumber: string,
+  ): Promise<Prisma.ContactGetPayload<object> | null> {
+    const normalized = normalizePhoneNumber(whatsappNumber);
+    const byNormalized = await this.prisma.contact.findFirst({
+      where: { dealershipId, normalizedWhatsappNumber: normalized },
+    });
+    if (byNormalized) return byNormalized;
+    const contacts = await this.findMany(this.prisma.contact, {
+      dealershipId,
+    });
+    const match =
+      contacts.find((c) => normalizePhoneNumber(c.whatsappNumber) === normalized) ?? null;
+    if (match && match.normalizedWhatsappNumber == null) {
+      await this.prisma.contact.update({
+        where: { id: match.id },
+        data: { normalizedWhatsappNumber: normalized },
+      });
+    }
+    return match;
+  }
+
+  /**
+   * Find or create a contact by dealership + phone. Idempotent.
+   * Merges name/email/address if contact exists.
+   */
+  async findOrCreate(
+    dealershipId: string,
+    payload: ContactPayload,
+  ): Promise<Prisma.ContactGetPayload<object>> {
+    const normalized = normalizePhoneNumber(payload.whatsappNumber);
+    const existing = await this.findByDealershipAndPhone(
+      dealershipId,
+      payload.whatsappNumber,
+    );
+    if (existing) {
+      const updated = await this.prisma.contact.update({
+        where: { id: existing.id },
+        data: {
+          firstName: payload.firstName ?? existing.firstName,
+          lastName: payload.lastName ?? existing.lastName,
+          email: payload.email ?? existing.email,
+          address: payload.address ?? existing.address,
+        },
+      });
+      return updated;
+    }
+    return this.prisma.contact.create({
+      data: {
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        whatsappNumber: payload.whatsappNumber,
+        normalizedWhatsappNumber: normalized,
+        email: payload.email ?? null,
+        address: payload.address ?? null,
+        dealershipId,
+      },
+    });
+  }
+
+  /**
+   * Find by ID and dealership (tenant-safe).
+   */
+  async findByIdAndDealership(
+    id: string,
+    dealershipId: string,
+  ): Promise<Prisma.ContactGetPayload<object> | null> {
+    return this.findOne(this.prisma.contact, { id, dealershipId });
+  }
+
+  /**
+   * Find by ID when contact belongs to any dealership in the organization.
+   */
+  async findByIdAndOrganization(
+    id: string,
+    organizationId: string,
+  ): Promise<Prisma.ContactGetPayload<object> | null> {
+    const dealerships = await this.prisma.dealership.findMany({
+      where: { organizationId },
+      select: { id: true },
+    });
+    const dealershipIds = dealerships.map((d) => d.id);
+    if (dealershipIds.length === 0) return null;
+    return this.prisma.contact.findFirst({
+      where: { id, dealershipId: { in: dealershipIds } },
+    });
+  }
+
+  /**
+   * List contacts for a dealership with pagination.
+   */
+  async findByDealership(
+    dealershipId: string,
+    options?: { limit?: number; skip?: number; search?: string },
+  ): Promise<{ contacts: Prisma.ContactGetPayload<object>[]; total: number }> {
+    const where = this.buildListWhere(dealershipId, null, options?.search);
+    return this.listContacts(where, options);
+  }
+
+  /**
+   * List contacts for an organization (all dealerships under that org). Used for org-level admins.
+   */
+  async findByOrganization(
+    organizationId: string,
+    options?: { limit?: number; skip?: number; search?: string },
+  ): Promise<{ contacts: Prisma.ContactGetPayload<object>[]; total: number }> {
+    const dealerships = await this.prisma.dealership.findMany({
+      where: { organizationId },
+      select: { id: true },
+    });
+    const dealershipIds = dealerships.map((d) => d.id);
+    if (dealershipIds.length === 0) {
+      return { contacts: [], total: 0 };
+    }
+    const where = this.buildListWhere(null, dealershipIds, options?.search);
+    return this.listContacts(where, options);
+  }
+
+  private buildListWhere(
+    dealershipId: string | null,
+    dealershipIds: string[] | null,
+    search?: string,
+  ): Prisma.ContactWhereInput {
+    const where: Prisma.ContactWhereInput = {};
+    if (dealershipId != null) {
+      where.dealershipId = dealershipId;
+    } else if (dealershipIds != null && dealershipIds.length > 0) {
+      where.dealershipId = { in: dealershipIds };
+    }
+    if (search?.trim()) {
+      const q = `%${search.trim()}%`;
+      where.OR = [
+        { firstName: { contains: q, mode: "insensitive" } },
+        { lastName: { contains: q, mode: "insensitive" } },
+        { whatsappNumber: { contains: search.trim() } },
+        { email: { contains: q, mode: "insensitive" } },
+      ];
+    }
+    return where;
+  }
+
+  private async listContacts(
+    where: Prisma.ContactWhereInput,
+    options?: { limit?: number; skip?: number },
+  ): Promise<{ contacts: Prisma.ContactGetPayload<object>[]; total: number }> {
+    const [contacts, total] = await Promise.all([
+      this.prisma.contact.findMany({
+        where,
+        orderBy: { updatedAt: "desc" },
+        take: options?.limit ?? 50,
+        skip: options?.skip ?? 0,
+      }),
+      this.prisma.contact.count({ where }),
+    ]);
+    return { contacts, total };
+  }
+}

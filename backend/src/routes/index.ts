@@ -21,8 +21,12 @@ import debugRoutes from "./debug";
 import bulkUploadJobsRoutes from "./bulk-upload-jobs";
 import exportRoutes from "./export.routes";
 import organizationsRoutes from "./organizations";
+import contactsRoutes from "./contacts";
 
 const router: ExpressRouter = Router();
+
+// Ensure contacts route is mounted (GET /api/contacts)
+router.use("/contacts", contactsRoutes);
 
 // Auth routes
 router.use("/auth", authRoutes);

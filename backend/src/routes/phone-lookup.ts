@@ -1,6 +1,8 @@
 import { Router, Request, Response, type Router as ExpressRouter } from "express";
 import prisma from "../lib/db";
 import { authenticate, asyncHandler } from "../middleware/auth";
+import { normalizePhoneNumber } from "../utils/phone-formatter";
+import { getVisitorPhone } from "../utils/contact-resolver";
 
 const router: ExpressRouter = Router();
 
@@ -26,10 +28,15 @@ router.get(
         prisma.visitor.findMany({
           where: {
             dealershipId: req.user.dealershipId,
-            whatsappNumber: phoneNumber,
+            OR: [
+              { whatsappNumber: phoneNumber },
+              { contact: { whatsappNumber: phoneNumber } },
+            ],
           },
           select: {
             id: true,
+            contact: { select: { whatsappNumber: true, firstName: true, lastName: true } },
+            whatsappNumber: true,
             firstName: true,
             lastName: true,
           },
@@ -38,10 +45,15 @@ router.get(
         prisma.digitalEnquiry.findMany({
           where: {
             dealershipId: req.user.dealershipId,
-            whatsappNumber: phoneNumber,
+            OR: [
+              { whatsappNumber: phoneNumber },
+              { contact: { whatsappNumber: phoneNumber } },
+            ],
           },
           select: {
             id: true,
+            contact: { select: { whatsappNumber: true, firstName: true, lastName: true } },
+            whatsappNumber: true,
             firstName: true,
             lastName: true,
           },
@@ -50,10 +62,15 @@ router.get(
         prisma.fieldInquiry.findMany({
           where: {
             dealershipId: req.user.dealershipId,
-            whatsappNumber: phoneNumber,
+            OR: [
+              { whatsappNumber: phoneNumber },
+              { contact: { whatsappNumber: phoneNumber } },
+            ],
           },
           select: {
             id: true,
+            contact: { select: { whatsappNumber: true, firstName: true, lastName: true } },
+            whatsappNumber: true,
             firstName: true,
             lastName: true,
           },
@@ -113,10 +130,14 @@ router.post(
         prisma.visitor.findMany({
           where: {
             dealershipId: req.user.dealershipId,
-            whatsappNumber: { in: uniquePhones },
+            OR: [
+              { whatsappNumber: { in: uniquePhones } },
+              { contact: { whatsappNumber: { in: uniquePhones } } },
+            ],
           },
           select: {
             id: true,
+            contact: { select: { whatsappNumber: true } },
             whatsappNumber: true,
             firstName: true,
             lastName: true,
@@ -125,10 +146,14 @@ router.post(
         prisma.digitalEnquiry.findMany({
           where: {
             dealershipId: req.user.dealershipId,
-            whatsappNumber: { in: uniquePhones },
+            OR: [
+              { whatsappNumber: { in: uniquePhones } },
+              { contact: { whatsappNumber: { in: uniquePhones } } },
+            ],
           },
           select: {
             id: true,
+            contact: { select: { whatsappNumber: true } },
             whatsappNumber: true,
             firstName: true,
             lastName: true,
@@ -137,10 +162,14 @@ router.post(
         prisma.fieldInquiry.findMany({
           where: {
             dealershipId: req.user.dealershipId,
-            whatsappNumber: { in: uniquePhones },
+            OR: [
+              { whatsappNumber: { in: uniquePhones } },
+              { contact: { whatsappNumber: { in: uniquePhones } } },
+            ],
           },
           select: {
             id: true,
+            contact: { select: { whatsappNumber: true } },
             whatsappNumber: true,
             firstName: true,
             lastName: true,
@@ -160,12 +189,24 @@ router.post(
         }),
       ]);
 
-    const visitorMap = new Map(visitors.map((v) => [v.whatsappNumber, v]));
-    const enquiryMap = new Map(digitalEnquiries.map((e) => [e.whatsappNumber, e]));
-    const fieldInquiryMap = new Map(
-      fieldInquiries.map((f) => [f.whatsappNumber, f])
+    const visitorMap = new Map(
+      visitors.map((v) => [normalizePhoneNumber(getVisitorPhone(v)), v])
     );
-    const ticketMap = new Map(deliveryTickets.map((t) => [t.whatsappNumber, t]));
+    const enquiryMap = new Map(
+      digitalEnquiries.map((e) => [
+        normalizePhoneNumber(e.contact?.whatsappNumber ?? e.whatsappNumber ?? ""),
+        e,
+      ])
+    );
+    const fieldInquiryMap = new Map(
+      fieldInquiries.map((f) => [
+        normalizePhoneNumber(f.contact?.whatsappNumber ?? f.whatsappNumber ?? ""),
+        f,
+      ])
+    );
+    const ticketMap = new Map(
+      deliveryTickets.map((t) => [normalizePhoneNumber(t.whatsappNumber), t])
+    );
 
     const results: Record<
       string,
@@ -182,10 +223,11 @@ router.post(
     > = {};
 
     uniquePhones.forEach((phone) => {
-      const visitor = visitorMap.get(phone);
-      const enquiry = enquiryMap.get(phone);
-      const fieldInquiry = fieldInquiryMap.get(phone);
-      const ticket = ticketMap.get(phone);
+      const key = normalizePhoneNumber(phone);
+      const visitor = visitorMap.get(key);
+      const enquiry = enquiryMap.get(key);
+      const fieldInquiry = fieldInquiryMap.get(key);
+      const ticket = ticketMap.get(key);
 
       results[phone] = {
         dailyWalkins: !!visitor,
