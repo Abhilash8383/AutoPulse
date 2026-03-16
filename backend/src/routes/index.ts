@@ -25,6 +25,9 @@ import contactsRoutes from "./contacts";
 
 const router: ExpressRouter = Router();
 
+// Ensure contacts route is mounted (GET /api/contacts)
+router.use("/contacts", contactsRoutes);
+
 // Auth routes
 router.use("/auth", authRoutes);
 
@@ -48,7 +51,6 @@ router.use("/test-drives", testDrivesRoutes);
 router.use("/digital-enquiry", digitalEnquiryRoutes);
 router.use("/field-inquiry", fieldInquiryRoutes);
 router.use("/delivery-tickets", deliveryTicketsRoutes);
-router.use("/contacts", contactsRoutes);
 router.use("/bulk-upload-jobs", bulkUploadJobsRoutes);
 router.use("/export", exportRoutes);
 

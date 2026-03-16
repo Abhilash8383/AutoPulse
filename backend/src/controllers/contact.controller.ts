@@ -10,11 +10,18 @@ export class ContactController {
   }
 
   /**
-   * List contacts for the current dealership (CRM-ready).
+   * List contacts (CRM-ready).
+   * - Org-level (super_admin/admin with organizationId): all contacts for that organization.
+   * - Dealership-level: contacts for that dealership only.
    * GET /api/contacts?limit=&skip=&search=
    */
   list = async (req: Request, res: Response): Promise<void> => {
-    if (!req.user?.dealershipId) {
+    const organizationId = req.user?.organizationId;
+    const dealershipId = req.user?.dealershipId;
+    const isOrgAdmin =
+      req.user?.role === "super_admin" || req.user?.role === "admin";
+
+    if (!organizationId && !dealershipId) {
       res.status(401).json({ error: "Not authenticated or no dealership scope" });
       return;
     }
@@ -30,10 +37,19 @@ export class ContactController {
     const search = (req.query.search as string) || undefined;
 
     try {
-      const { contacts, total } = await this.repository.findByDealership(
-        req.user.dealershipId,
-        { limit, skip, search },
-      );
+      const { contacts, total } =
+        isOrgAdmin && organizationId
+          ? await this.repository.findByOrganization(organizationId, {
+              limit,
+              skip,
+              search,
+            })
+          : await this.repository.findByDealership(dealershipId!, {
+              limit,
+              skip,
+              search,
+            });
+
       res.json({
         contacts,
         total,
@@ -48,20 +64,27 @@ export class ContactController {
 
   /**
    * Get a single contact by ID (tenant-scoped).
+   * Org admins can view any contact in their org; others by dealership.
    * GET /api/contacts/:id
    */
   getById = async (req: Request, res: Response): Promise<void> => {
-    if (!req.user?.dealershipId) {
+    const organizationId = req.user?.organizationId;
+    const dealershipId = req.user?.dealershipId;
+    const isOrgAdmin =
+      req.user?.role === "super_admin" || req.user?.role === "admin";
+
+    if (!organizationId && !dealershipId) {
       res.status(401).json({ error: "Not authenticated or no dealership scope" });
       return;
     }
 
     const id = req.params.id as string;
     try {
-      const contact = await this.repository.findByIdAndDealership(
-        id,
-        req.user.dealershipId,
-      );
+      const contact =
+        isOrgAdmin && organizationId
+          ? await this.repository.findByIdAndOrganization(id, organizationId)
+          : await this.repository.findByIdAndDealership(id, dealershipId!);
+
       if (!contact) {
         res.status(404).json({ error: "Contact not found" });
         return;

@@ -7,3 +7,4 @@ export * from "./field-inquiry.service";
 export * from "./model.service";
 export * from "./statistics.service";
 export * from "./auth.service";
+export * from "./contact.service";
