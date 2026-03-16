@@ -119,8 +119,8 @@ The server will run on `http://localhost:8000` by default.
 2. **Monitor coverage**  
    `pnpm run coverage:contacts` to see how many Visitor / DigitalEnquiry / FieldInquiry rows have `contactId` set. Aim for ≥ 98% before Phase 6.
 
-3. **Start Phase 6 slowly later**  
-   After coverage is good, consider deprecating duplicated person fields on Visitor/DigitalEnquiry/FieldInquiry in favor of `contactId` (see comment above `Contact` in `prisma/schema.prisma`).
+3. **Just monitor (for now) — do not rush Phase 6**  
+   Wait at least 1–2 weeks of production usage. Confirm: no missing contacts, no bugs, dual-write stable. Then consider Phase 6 (deprecating duplicated person fields on Visitor/DigitalEnquiry/FieldInquiry in favor of `contactId`; see comment above `Contact` in `prisma/schema.prisma`).
 
 4. **Use migrations from now**  
    For new schema changes, use `pnpm run prisma:migrate` (creates/applies migrations) instead of `prisma db push`. Use `prisma:migrate:deploy` in production.

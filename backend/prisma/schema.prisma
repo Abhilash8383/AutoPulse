@@ -209,9 +209,9 @@ model VehicleVariant {
 
 model Visitor {
   id                String   @id @default(cuid())
-  firstName         String
-  lastName          String
-  whatsappNumber    String
+  firstName         String?  // deprecated: prefer contact.firstName
+  lastName          String?  // deprecated: prefer contact.lastName
+  whatsappNumber    String?  // deprecated: prefer contact.whatsappNumber
   email             String?
   address           String?
   whatsappContactId String?
@@ -320,9 +320,9 @@ model LeadSource {
 
 model DigitalEnquiry {
   id                  String   @id @default(cuid())
-  firstName           String
-  lastName            String
-  whatsappNumber      String
+  firstName           String?  // deprecated: prefer contact
+  lastName            String?  // deprecated: prefer contact
+  whatsappNumber      String?  // deprecated: prefer contact
   email               String?
   address             String?
   reason              String
@@ -414,9 +414,9 @@ model ScheduledMessage {
 
 model FieldInquiry {
   id                  String   @id @default(cuid())
-  firstName           String
-  lastName            String
-  whatsappNumber      String
+  firstName           String?  // deprecated: prefer contact
+  lastName            String?  // deprecated: prefer contact
+  whatsappNumber      String?  // deprecated: prefer contact
   email               String?
   address             String?
   reason              String

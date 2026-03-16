@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import prisma from "../lib/db";
 import { whatsappClient } from "../lib/whatsapp";
 import { authenticate, asyncHandler } from "../middleware/auth";
+import { getVisitorPhone } from "../utils/contact-resolver";
 
 const router: Router = Router();
 
@@ -31,7 +32,7 @@ router.post(
         },
       },
       include: {
-        visitor: true,
+        visitor: { include: { contact: true } },
       },
     });
 
@@ -70,7 +71,8 @@ router.post(
     let messageStatus = "not_sent";
     let messageError = null;
 
-    if (template && session.visitor.whatsappNumber) {
+    const visitorPhone = getVisitorPhone(session.visitor);
+    if (template && visitorPhone) {
       try {
         const dealership = await prisma.dealership.findUnique({
           where: { id: req.user.dealershipId },
@@ -79,7 +81,7 @@ router.post(
         const showroomNumber = dealership?.showroomNumber || "999999999";
 
         await whatsappClient.sendTemplate({
-          contactNumber: session.visitor.whatsappNumber,
+          contactNumber: visitorPhone,
           templateName: template.templateName,
           templateId: template.templateId,
           templateLanguage: template.language,

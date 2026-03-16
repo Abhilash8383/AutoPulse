@@ -10,23 +10,13 @@ export class DigitalEnquiryRepository extends BaseRepository<DigitalEnquiryWithR
     id: string,
     dealershipId: string,
   ): Promise<DigitalEnquiryWithRelations | null> {
-    return this.findOne(
-      this.prisma.digitalEnquiry,
-      {
-        id,
-        dealershipId,
+    return this.findOne(this.prisma.digitalEnquiry, { id, dealershipId }, {
+      include: {
+        contact: true,
+        leadSource: true,
+        model: { include: { category: true } },
       },
-      {
-        include: {
-          leadSource: true,
-          model: {
-            include: {
-              category: true,
-            },
-          },
-        },
-      },
-    );
+    });
   }
 
   /**
@@ -57,16 +47,11 @@ export class DigitalEnquiryRepository extends BaseRepository<DigitalEnquiryWithR
       { dealershipId },
       {
         include: {
+          contact: true,
           leadSource: true,
-          model: {
-            include: {
-              category: true,
-            },
-          },
+          model: { include: { category: true } },
         },
-        orderBy: {
-          createdAt: "desc",
-        },
+        orderBy: { createdAt: "desc" },
         take: options?.limit,
         skip: options?.skip,
       },
@@ -88,12 +73,9 @@ export class DigitalEnquiryRepository extends BaseRepository<DigitalEnquiryWithR
   ): Promise<DigitalEnquiryWithRelations> {
     return this.create(this.prisma.digitalEnquiry, data, {
       include: {
+        contact: true,
         leadSource: true,
-        model: {
-          include: {
-            category: true,
-          },
-        },
+        model: { include: { category: true } },
       },
     }) as Promise<DigitalEnquiryWithRelations>;
   }
@@ -107,12 +89,9 @@ export class DigitalEnquiryRepository extends BaseRepository<DigitalEnquiryWithR
   ): Promise<DigitalEnquiryWithRelations> {
     return super.update(this.prisma.digitalEnquiry, { id }, data, {
       include: {
+        contact: true,
         leadSource: true,
-        model: {
-          include: {
-            category: true,
-          },
-        },
+        model: { include: { category: true } },
       },
     }) as Promise<DigitalEnquiryWithRelations>;
   }

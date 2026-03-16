@@ -10,6 +10,7 @@ import {
 } from "../dto/response/visitor.response";
 import { whatsappClient } from "../lib/whatsapp";
 import { normalizePhoneNumber } from "../utils/phone-formatter";
+import { resolveDisplay } from "../utils/contact-resolver";
 import { PAGINATION } from "../config/constants";
 import prisma from "../lib/db";
 
@@ -29,9 +30,15 @@ export class VisitorService {
     data: CreateVisitorDto,
     dealershipId: string,
   ): Promise<CreateVisitorResponse> {
-    const normalizedPhone = normalizePhoneNumber(data.whatsappNumber);
+    // Single source of truth: Contact first, then link Visitor
+    const contact = await this.contactRepository.findOrCreate(dealershipId, {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      whatsappNumber: data.whatsappNumber,
+      email: data.email ?? undefined,
+      address: data.address ?? undefined,
+    });
 
-    // Find existing visitor by normalized phone
     let visitor = await this.repository.findByPhoneAndDealership(
       data.whatsappNumber,
       dealershipId,
@@ -40,31 +47,16 @@ export class VisitorService {
     const isNewVisitor = !visitor;
 
     if (visitor) {
-      // Update visitor info
-      visitor = await this.repository.update(visitor.id, {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email || visitor.email,
-        address: data.address || visitor.address,
-      });
+      if (!visitor.contactId) {
+        visitor = await this.repository.update(visitor.id, {
+          contact: { connect: { id: contact.id } },
+        });
+      }
     } else {
-      // Create new visitor
       visitor = await this.repository.createVisitor({
-        firstName: data.firstName,
-        lastName: data.lastName,
-        whatsappNumber: data.whatsappNumber,
-        email: data.email || null,
-        address: data.address || null,
+        contact: { connect: { id: contact.id } },
+        dealership: { connect: { id: dealershipId } },
         whatsappContactId: null,
-        dealership: {
-          connect: { id: dealershipId },
-        },
-        sessions: {
-          create: [],
-        },
-        interests: {
-          create: [],
-        },
       });
     }
 
@@ -72,17 +64,7 @@ export class VisitorService {
       throw new Error("Failed to create or find visitor");
     }
 
-    // Dual-write: ensure Contact exists and link visitor
-    const contact = await this.contactRepository.findOrCreate(dealershipId, {
-      firstName: visitor.firstName,
-      lastName: visitor.lastName,
-      whatsappNumber: visitor.whatsappNumber,
-      email: visitor.email ?? undefined,
-      address: visitor.address ?? undefined,
-    });
-    if (!visitor.contactId) {
-      await this.repository.update(visitor.id, { contact: { connect: { id: contact.id } } });
-    }
+    const resolved = resolveDisplay(visitor);
 
     const visitorId = visitor.id;
     const sessionCount = visitor.sessions?.length || 0;
@@ -178,7 +160,7 @@ export class VisitorService {
             templateName: returnVisitTemplate.templateName,
             templateId: returnVisitTemplate.templateId,
             templateLanguage: returnVisitTemplate.language,
-            parameters: [visitor.firstName, visitLabel],
+            parameters: [resolved.firstName, visitLabel],
           });
           messageStatus = "sent";
         } catch (error: unknown) {
@@ -219,8 +201,8 @@ export class VisitorService {
       success: true,
       visitor: {
         id: visitor.id,
-        firstName: visitor.firstName,
-        lastName: visitor.lastName,
+        firstName: resolved.firstName,
+        lastName: resolved.lastName,
       },
       session: {
         id: session.id,
@@ -259,7 +241,7 @@ export class VisitorService {
     const hasMore = offset + take < total;
 
     return {
-      visitors,
+      visitors: visitors.map((v) => resolveDisplay(v)),
       hasMore,
       total,
       skip: offset,
@@ -283,14 +265,15 @@ export class VisitorService {
       return { visitor: null, found: false };
     }
 
+    const resolved = resolveDisplay(visitor);
     return {
       visitor: {
         id: visitor.id,
-        firstName: visitor.firstName,
-        lastName: visitor.lastName,
-        whatsappNumber: visitor.whatsappNumber,
-        email: visitor.email,
-        address: visitor.address,
+        firstName: resolved.firstName,
+        lastName: resolved.lastName,
+        whatsappNumber: resolved.whatsappNumber,
+        email: resolved.email,
+        address: resolved.address,
         sessionCount: visitor.sessions?.length || 0,
         interests: visitor.interests.map((i) => ({
           modelId: i.model.id,
@@ -433,6 +416,7 @@ export class VisitorService {
     });
 
     const templateToUse = returnVisitTemplate || welcomeTemplate;
+    const resolved = resolveDisplay(visitor);
 
     let messageStatus: "sent" | "failed" | "not_sent" | "not_configured" =
       "not_sent";
@@ -451,11 +435,11 @@ export class VisitorService {
 
         const parameters =
           templateToUse.type === "return_visit"
-            ? [visitor.firstName, visitLabel]
-            : [visitor.firstName, new Date().toLocaleDateString()];
+            ? [resolved.firstName, visitLabel]
+            : [resolved.firstName, new Date().toLocaleDateString()];
 
         await whatsappClient.sendTemplate({
-          contactNumber: visitor.whatsappNumber,
+          contactNumber: resolved.whatsappNumber,
           templateName: templateToUse.templateName,
           templateId: templateToUse.templateId,
           templateLanguage: templateToUse.language,
@@ -478,8 +462,8 @@ export class VisitorService {
       },
       visitor: {
         id: visitor.id,
-        firstName: visitor.firstName,
-        lastName: visitor.lastName,
+        firstName: resolved.firstName,
+        lastName: resolved.lastName,
       },
       message: {
         status: messageStatus,

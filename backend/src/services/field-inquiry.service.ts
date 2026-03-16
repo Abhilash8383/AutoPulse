@@ -14,6 +14,7 @@ import {
 import { whatsappClient } from "../lib/whatsapp";
 import { validateRequiredColumns, parseExcelDate } from "../utils/excel-parser";
 import { BulkUploadRequest, ExcelRow } from "../dto/request/bulk-upload.dto";
+import { resolveDisplay } from "../utils/contact-resolver";
 import { EXCEL, LEAD_SCOPE, PAGINATION } from "../config/constants";
 import prisma from "../lib/db";
 
@@ -33,26 +34,20 @@ export class FieldInquiryService {
     data: CreateFieldInquiryDto,
     dealershipId: string
   ): Promise<CreateFieldInquiryResponse> {
-    // Check if enquiry already exists
-    const existingInquiry =
-      await this.repository.findByWhatsAppNumberAndDealership(
-        data.whatsappNumber,
-        dealershipId
-      );
-
-    // Create field inquiry
-    const enquiry = await this.repository.createInquiry({
+    const contact = await this.contactRepository.findOrCreate(dealershipId, {
       firstName: data.firstName,
       lastName: data.lastName,
       whatsappNumber: data.whatsappNumber,
-      email: data.email || null,
-      address: data.address || null,
+      email: data.email ?? undefined,
+      address: data.address ?? undefined,
+    });
+
+    const enquiry = await this.repository.createInquiry({
+      contact: { connect: { id: contact.id } },
+      dealership: { connect: { id: dealershipId } },
       reason: data.reason,
       leadScope: data.leadScope || LEAD_SCOPE.WARM,
       whatsappContactId: null,
-      dealership: {
-        connect: { id: dealershipId },
-      },
       leadSource: data.leadSourceId
         ? { connect: { id: data.leadSourceId } }
         : undefined,
@@ -62,18 +57,6 @@ export class FieldInquiryService {
       variant: data.interestedVariantId
         ? { connect: { id: data.interestedVariantId } }
         : undefined,
-    });
-
-    // Dual-write: ensure Contact exists and link enquiry
-    const contact = await this.contactRepository.findOrCreate(dealershipId, {
-      firstName: enquiry.firstName,
-      lastName: enquiry.lastName,
-      whatsappNumber: enquiry.whatsappNumber,
-      email: enquiry.email ?? undefined,
-      address: enquiry.address ?? undefined,
-    });
-    await this.repository.update(enquiry.id, {
-      contact: { connect: { id: contact.id } },
     });
 
     // Get WhatsApp template
@@ -110,12 +93,13 @@ export class FieldInquiryService {
       messageError = "Template ID or Template Name not configured";
     }
 
+    const resolved = resolveDisplay(enquiry);
     return {
       success: true,
       enquiry: {
         id: enquiry.id,
-        firstName: enquiry.firstName,
-        lastName: enquiry.lastName,
+        firstName: resolved.firstName,
+        lastName: resolved.lastName,
       },
       message: {
         status: messageStatus,
@@ -152,7 +136,7 @@ export class FieldInquiryService {
     const hasMore = offset + take < total;
 
     return {
-      enquiries,
+      enquiries: enquiries.map((e) => resolveDisplay(e)),
       hasMore,
       total,
       skip: offset,
@@ -188,7 +172,7 @@ export class FieldInquiryService {
 
     return {
       success: true,
-      enquiry: updatedEnquiry,
+      enquiry: resolveDisplay(updatedEnquiry),
     };
   }
 
@@ -326,21 +310,21 @@ export class FieldInquiryService {
             dealershipId
           );
 
-        // Create field inquiry
-        const enquiry = await this.repository.createInquiry({
+        const contact = await this.contactRepository.findOrCreate(dealershipId, {
           firstName,
           lastName,
           whatsappNumber,
-          email: null,
-          address: address || null,
+          address: address ?? undefined,
+        });
+
+        const enquiry = await this.repository.createInquiry({
+          contact: { connect: { id: contact.id } },
+          dealership: { connect: { id: dealershipId } },
           reason: date
             ? `Inquiry from ${date.toLocaleDateString()}`
             : "Bulk imported inquiry",
           leadScope: LEAD_SCOPE.COLD,
           whatsappContactId: null,
-          dealership: {
-            connect: { id: dealershipId },
-          },
           leadSource: leadSourceId
             ? { connect: { id: leadSourceId } }
             : undefined,
@@ -348,17 +332,6 @@ export class FieldInquiryService {
             ? { connect: { id: matchedModel.id } }
             : undefined,
           variant: undefined,
-        });
-
-        // Dual-write: link enquiry to Contact
-        const contact = await this.contactRepository.findOrCreate(dealershipId, {
-          firstName,
-          lastName,
-          whatsappNumber,
-          address: address ?? undefined,
-        });
-        await this.repository.update(enquiry.id, {
-          contact: { connect: { id: contact.id } },
         });
 
         // Send WhatsApp message if template is configured

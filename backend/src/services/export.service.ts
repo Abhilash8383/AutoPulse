@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import prisma from "../lib/db";
+import { resolveDisplay } from "../utils/contact-resolver";
 
 export type ExportType =
   | "visitors"
@@ -134,6 +135,7 @@ export class ExportService {
         createdAt: { gte: dateFrom, lte: dateTo },
       },
       include: {
+        contact: true,
         interests: {
           include: {
             model: true,
@@ -155,6 +157,7 @@ export class ExportService {
     });
 
     const data = visitors.map((visitor) => {
+      const v = resolveDisplay(visitor);
       const models = visitor.interests
         .map((i) => i.model?.name)
         .filter(Boolean)
@@ -172,11 +175,11 @@ export class ExportService {
 
       return {
         "S.No": 0, // Will be filled later
-        "First Name": visitor.firstName,
-        "Last Name": visitor.lastName,
-        "WhatsApp Number": visitor.whatsappNumber,
-        Email: visitor.email || "-",
-        Address: visitor.address || "-",
+        "First Name": v.firstName,
+        "Last Name": v.lastName,
+        "WhatsApp Number": v.whatsappNumber,
+        Email: v.email || "-",
+        Address: v.address || "-",
         "Interested Models": models || "-",
         "Interested Variants": variants || "-",
         "Visit Reason": latestSession?.reason || "-",
@@ -217,6 +220,7 @@ export class ExportService {
         createdAt: { gte: dateFrom, lte: dateTo },
       },
       include: {
+        contact: true,
         model: true,
         variant: true,
         leadSource: true,
@@ -228,13 +232,15 @@ export class ExportService {
       orderBy: { createdAt: "desc" },
     });
 
-    const data = enquiries.map((enquiry) => ({
+    const data = enquiries.map((enquiry) => {
+      const e = resolveDisplay(enquiry);
+      return {
       "S.No": 0, // Will be filled later
-      "First Name": enquiry.firstName,
-      "Last Name": enquiry.lastName,
-      "WhatsApp Number": enquiry.whatsappNumber,
-      Email: enquiry.email || "-",
-      Address: enquiry.address || "-",
+      "First Name": e.firstName,
+      "Last Name": e.lastName,
+      "WhatsApp Number": e.whatsappNumber,
+      Email: e.email || "-",
+      Address: e.address || "-",
       Reason: enquiry.reason || "-",
       "Lead Scope": enquiry.leadScope || "-",
       Model: enquiry.model?.name || enquiry.modelText || "-",
@@ -243,7 +249,8 @@ export class ExportService {
       Status: enquiry.sessions[0]?.status || "active",
       Notes: enquiry.sessions[0]?.notes || "-",
       Date: this.formatDate(enquiry.createdAt),
-    }));
+    };
+    });
 
     // Add serial numbers
     data.forEach((row, index) => {
@@ -275,6 +282,7 @@ export class ExportService {
         createdAt: { gte: dateFrom, lte: dateTo },
       },
       include: {
+        contact: true,
         model: true,
         variant: true,
         leadSource: true,
@@ -286,13 +294,15 @@ export class ExportService {
       orderBy: { createdAt: "desc" },
     });
 
-    const data = inquiries.map((inquiry) => ({
+    const data = inquiries.map((inquiry) => {
+      const i = resolveDisplay(inquiry);
+      return {
       "S.No": 0, // Will be filled later
-      "First Name": inquiry.firstName,
-      "Last Name": inquiry.lastName,
-      "WhatsApp Number": inquiry.whatsappNumber,
-      Email: inquiry.email || "-",
-      Address: inquiry.address || "-",
+      "First Name": i.firstName,
+      "Last Name": i.lastName,
+      "WhatsApp Number": i.whatsappNumber,
+      Email: i.email || "-",
+      Address: i.address || "-",
       Reason: inquiry.reason || "-",
       "Lead Scope": inquiry.leadScope || "-",
       Model: inquiry.model?.name || "-",
@@ -301,7 +311,8 @@ export class ExportService {
       Status: inquiry.sessions[0]?.status || "active",
       Notes: inquiry.sessions[0]?.notes || "-",
       Date: this.formatDate(inquiry.createdAt),
-    }));
+    };
+    });
 
     // Add serial numbers
     data.forEach((row, index) => {

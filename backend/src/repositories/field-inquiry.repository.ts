@@ -10,23 +10,13 @@ export class FieldInquiryRepository extends BaseRepository<FieldInquiryWithRelat
     id: string,
     dealershipId: string
   ): Promise<FieldInquiryWithRelations | null> {
-    return this.findOne(
-      this.prisma.fieldInquiry,
-      {
-        id,
-        dealershipId,
+    return this.findOne(this.prisma.fieldInquiry, { id, dealershipId }, {
+      include: {
+        contact: true,
+        leadSource: true,
+        model: { include: { category: true } },
       },
-      {
-        include: {
-          leadSource: true,
-          model: {
-            include: {
-              category: true,
-            },
-          },
-        },
-      }
-    );
+    });
   }
 
   /**
@@ -57,16 +47,11 @@ export class FieldInquiryRepository extends BaseRepository<FieldInquiryWithRelat
       { dealershipId },
       {
         include: {
+          contact: true,
           leadSource: true,
-          model: {
-            include: {
-              category: true,
-            },
-          },
+          model: { include: { category: true } },
         },
-        orderBy: {
-          createdAt: "desc",
-        },
+        orderBy: { createdAt: "desc" },
         take: options?.limit,
         skip: options?.skip,
       }
@@ -86,10 +71,13 @@ export class FieldInquiryRepository extends BaseRepository<FieldInquiryWithRelat
   async createInquiry(
     data: Prisma.FieldInquiryCreateInput
   ): Promise<FieldInquiryWithRelations> {
-    return this.create(
-      this.prisma.fieldInquiry,
-      data
-    ) as Promise<FieldInquiryWithRelations>;
+    return this.create(this.prisma.fieldInquiry, data, {
+      include: {
+        contact: true,
+        leadSource: true,
+        model: { include: { category: true } },
+      },
+    }) as Promise<FieldInquiryWithRelations>;
   }
 
   /**
@@ -101,12 +89,9 @@ export class FieldInquiryRepository extends BaseRepository<FieldInquiryWithRelat
   ): Promise<FieldInquiryWithRelations> {
     return super.update(this.prisma.fieldInquiry, { id }, data, {
       include: {
+        contact: true,
         leadSource: true,
-        model: {
-          include: {
-            category: true,
-          },
-        },
+        model: { include: { category: true } },
       },
     }) as Promise<FieldInquiryWithRelations>;
   }
