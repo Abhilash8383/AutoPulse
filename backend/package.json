@@ -12,7 +12,10 @@
     "prisma:studio": "prisma studio",
     "prepare": "prisma generate",
     "backup": "node scripts/backup.js",
-    "backfill:contacts": "tsx scripts/backfill-contacts.ts"
+    "backfill:contacts": "tsx scripts/backfill-contacts.ts",
+    "coverage:contacts": "tsx scripts/contact-coverage.ts",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy"
   },
   "keywords": [],
   "author": "",
