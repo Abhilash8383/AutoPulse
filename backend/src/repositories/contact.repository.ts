@@ -17,18 +17,30 @@ export interface ContactPayload {
 export class ContactRepository extends BaseRepository<Prisma.ContactGetPayload<object>> {
   /**
    * Find contact by dealership and normalized WhatsApp number.
+   * Uses normalizedWhatsappNumber for indexed lookup when set; falls back to in-memory
+   * for legacy rows and backfills normalizedWhatsappNumber when a match is found.
    */
   async findByDealershipAndPhone(
     dealershipId: string,
     whatsappNumber: string,
   ): Promise<Prisma.ContactGetPayload<object> | null> {
     const normalized = normalizePhoneNumber(whatsappNumber);
+    const byNormalized = await this.prisma.contact.findFirst({
+      where: { dealershipId, normalizedWhatsappNumber: normalized },
+    });
+    if (byNormalized) return byNormalized;
     const contacts = await this.findMany(this.prisma.contact, {
       dealershipId,
     });
-    return (
-      contacts.find((c) => normalizePhoneNumber(c.whatsappNumber) === normalized) ?? null
-    );
+    const match =
+      contacts.find((c) => normalizePhoneNumber(c.whatsappNumber) === normalized) ?? null;
+    if (match && match.normalizedWhatsappNumber == null) {
+      await this.prisma.contact.update({
+        where: { id: match.id },
+        data: { normalizedWhatsappNumber: normalized },
+      });
+    }
+    return match;
   }
 
   /**
@@ -39,6 +51,7 @@ export class ContactRepository extends BaseRepository<Prisma.ContactGetPayload<o
     dealershipId: string,
     payload: ContactPayload,
   ): Promise<Prisma.ContactGetPayload<object>> {
+    const normalized = normalizePhoneNumber(payload.whatsappNumber);
     const existing = await this.findByDealershipAndPhone(
       dealershipId,
       payload.whatsappNumber,
@@ -47,8 +60,8 @@ export class ContactRepository extends BaseRepository<Prisma.ContactGetPayload<o
       const updated = await this.prisma.contact.update({
         where: { id: existing.id },
         data: {
-          firstName: payload.firstName || existing.firstName,
-          lastName: payload.lastName || existing.lastName,
+          firstName: payload.firstName ?? existing.firstName,
+          lastName: payload.lastName ?? existing.lastName,
           email: payload.email ?? existing.email,
           address: payload.address ?? existing.address,
         },
@@ -60,6 +73,7 @@ export class ContactRepository extends BaseRepository<Prisma.ContactGetPayload<o
         firstName: payload.firstName,
         lastName: payload.lastName,
         whatsappNumber: payload.whatsappNumber,
+        normalizedWhatsappNumber: normalized,
         email: payload.email ?? null,
         address: payload.address ?? null,
         dealershipId,

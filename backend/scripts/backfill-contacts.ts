@@ -25,7 +25,14 @@ function normalizePhone(phone: string): string {
   return cleaned;
 }
 
-async function findOrCreateContact(
+type ContactRow = { id: string; firstName: string; lastName: string; whatsappNumber: string; email: string | null; address: string | null };
+
+/**
+ * Find or create a contact using a pre-loaded map (avoids N+1: one findMany per dealership).
+ * Mutates the map when a new contact is created so subsequent rows can find it.
+ */
+async function findOrCreateContactWithMap(
+  map: Map<string, ContactRow>,
   dealershipId: string,
   payload: {
     firstName: string;
@@ -36,18 +43,13 @@ async function findOrCreateContact(
   },
 ): Promise<string> {
   const normalized = normalizePhone(payload.whatsappNumber);
-  const existing = await prisma.contact.findMany({
-    where: { dealershipId },
-  });
-  const match = existing.find(
-    (c) => normalizePhone(c.whatsappNumber) === normalized,
-  );
+  const match = map.get(normalized);
   if (match) {
     await prisma.contact.update({
       where: { id: match.id },
       data: {
-        firstName: payload.firstName || match.firstName,
-        lastName: payload.lastName || match.lastName,
+        firstName: payload.firstName ?? match.firstName,
+        lastName: payload.lastName ?? match.lastName,
         email: payload.email ?? match.email,
         address: payload.address ?? match.address,
       },
@@ -60,9 +62,18 @@ async function findOrCreateContact(
       firstName: payload.firstName,
       lastName: payload.lastName,
       whatsappNumber: payload.whatsappNumber,
+      normalizedWhatsappNumber: normalized,
       email: payload.email ?? null,
       address: payload.address ?? null,
     },
+  });
+  map.set(normalized, {
+    id: created.id,
+    firstName: created.firstName,
+    lastName: created.lastName,
+    whatsappNumber: created.whatsappNumber,
+    email: created.email,
+    address: created.address,
   });
   return created.id;
 }
@@ -81,18 +92,36 @@ async function main() {
   }
 
   let visitorsLinked = 0;
+  let visitorsSkipped = 0;
   let enquiriesLinked = 0;
+  let enquiriesSkipped = 0;
   let fieldLinked = 0;
+  let fieldSkipped = 0;
 
   for (const dealershipId of ids) {
+    const contacts = await prisma.contact.findMany({
+      where: { dealershipId },
+      select: { id: true, firstName: true, lastName: true, whatsappNumber: true, email: true, address: true },
+    });
+    const contactByNormalized = new Map<string, ContactRow>();
+    for (const c of contacts) {
+      contactByNormalized.set(normalizePhone(c.whatsappNumber), c);
+    }
+
     const visitors = await prisma.visitor.findMany({
       where: { dealershipId, contactId: null },
     });
     for (const v of visitors) {
-      const contactId = await findOrCreateContact(dealershipId, {
-        firstName: v.firstName,
-        lastName: v.lastName,
-        whatsappNumber: v.whatsappNumber,
+      const phone = (v.whatsappNumber ?? "").trim();
+      if (!phone) {
+        console.warn(`Skipping visitor ${v.id} due to missing required field (whatsappNumber).`);
+        visitorsSkipped++;
+        continue;
+      }
+      const contactId = await findOrCreateContactWithMap(contactByNormalized, dealershipId, {
+        firstName: v.firstName ?? "",
+        lastName: v.lastName ?? "",
+        whatsappNumber: phone,
         email: v.email,
         address: v.address,
       });
@@ -107,10 +136,16 @@ async function main() {
       where: { dealershipId, contactId: null },
     });
     for (const e of digitalEnquiries) {
-      const contactId = await findOrCreateContact(dealershipId, {
-        firstName: e.firstName,
-        lastName: e.lastName,
-        whatsappNumber: e.whatsappNumber,
+      const phone = (e.whatsappNumber ?? "").trim();
+      if (!phone) {
+        console.warn(`Skipping digital enquiry ${e.id} due to missing required field (whatsappNumber).`);
+        enquiriesSkipped++;
+        continue;
+      }
+      const contactId = await findOrCreateContactWithMap(contactByNormalized, dealershipId, {
+        firstName: e.firstName ?? "",
+        lastName: e.lastName ?? "",
+        whatsappNumber: phone,
         email: e.email,
         address: e.address,
       });
@@ -125,10 +160,16 @@ async function main() {
       where: { dealershipId, contactId: null },
     });
     for (const f of fieldInquiries) {
-      const contactId = await findOrCreateContact(dealershipId, {
-        firstName: f.firstName,
-        lastName: f.lastName,
-        whatsappNumber: f.whatsappNumber,
+      const phone = (f.whatsappNumber ?? "").trim();
+      if (!phone) {
+        console.warn(`Skipping field inquiry ${f.id} due to missing required field (whatsappNumber).`);
+        fieldSkipped++;
+        continue;
+      }
+      const contactId = await findOrCreateContactWithMap(contactByNormalized, dealershipId, {
+        firstName: f.firstName ?? "",
+        lastName: f.lastName ?? "",
+        whatsappNumber: phone,
         email: f.email,
         address: f.address,
       });
@@ -143,6 +184,11 @@ async function main() {
   console.log(
     `Done. Linked: Visitors ${visitorsLinked}, DigitalEnquiry ${enquiriesLinked}, FieldInquiry ${fieldLinked}.`,
   );
+  if (visitorsSkipped || enquiriesSkipped || fieldSkipped) {
+    console.log(
+      `Skipped (missing phone): Visitors ${visitorsSkipped}, DigitalEnquiry ${enquiriesSkipped}, FieldInquiry ${fieldSkipped}.`,
+    );
+  }
 }
 
 main()
