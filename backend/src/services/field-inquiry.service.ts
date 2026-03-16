@@ -1,4 +1,5 @@
 import { FieldInquiryRepository } from "../repositories/field-inquiry.repository";
+import { ContactRepository } from "../repositories/contact.repository";
 import { CreateFieldInquiryDto } from "../dto/request/create-field-inquiry.dto";
 import { UpdateLeadScopeDto } from "../dto/request/update-lead-scope.dto";
 import {
@@ -18,9 +19,11 @@ import prisma from "../lib/db";
 
 export class FieldInquiryService {
   private repository: FieldInquiryRepository;
+  private contactRepository: ContactRepository;
 
   constructor() {
     this.repository = new FieldInquiryRepository();
+    this.contactRepository = new ContactRepository();
   }
 
   /**
@@ -59,6 +62,18 @@ export class FieldInquiryService {
       variant: data.interestedVariantId
         ? { connect: { id: data.interestedVariantId } }
         : undefined,
+    });
+
+    // Dual-write: ensure Contact exists and link enquiry
+    const contact = await this.contactRepository.findOrCreate(dealershipId, {
+      firstName: enquiry.firstName,
+      lastName: enquiry.lastName,
+      whatsappNumber: enquiry.whatsappNumber,
+      email: enquiry.email ?? undefined,
+      address: enquiry.address ?? undefined,
+    });
+    await this.repository.update(enquiry.id, {
+      contact: { connect: { id: contact.id } },
     });
 
     // Get WhatsApp template
@@ -333,6 +348,17 @@ export class FieldInquiryService {
             ? { connect: { id: matchedModel.id } }
             : undefined,
           variant: undefined,
+        });
+
+        // Dual-write: link enquiry to Contact
+        const contact = await this.contactRepository.findOrCreate(dealershipId, {
+          firstName,
+          lastName,
+          whatsappNumber,
+          address: address ?? undefined,
+        });
+        await this.repository.update(enquiry.id, {
+          contact: { connect: { id: contact.id } },
         });
 
         // Send WhatsApp message if template is configured

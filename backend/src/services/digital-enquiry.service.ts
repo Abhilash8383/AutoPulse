@@ -1,4 +1,5 @@
 import { DigitalEnquiryRepository } from "../repositories/digital-enquiry.repository";
+import { ContactRepository } from "../repositories/contact.repository";
 import { CreateDigitalEnquiryDto } from "../dto/request/create-digital-enquiry.dto";
 import { UpdateLeadScopeDto } from "../dto/request/update-lead-scope.dto";
 import {
@@ -19,9 +20,11 @@ import prisma from "../lib/db";
 
 export class DigitalEnquiryService {
   private repository: DigitalEnquiryRepository;
+  private contactRepository: ContactRepository;
 
   constructor() {
     this.repository = new DigitalEnquiryRepository();
+    this.contactRepository = new ContactRepository();
   }
 
   /**
@@ -63,6 +66,18 @@ export class DigitalEnquiryService {
       // Store text fields for bulk upload when IDs are not available
       sourceText: data.sourceText || null,
       modelText: data.modelText || null,
+    });
+
+    // Dual-write: ensure Contact exists and link enquiry
+    const contact = await this.contactRepository.findOrCreate(dealershipId, {
+      firstName: enquiry.firstName,
+      lastName: enquiry.lastName,
+      whatsappNumber: enquiry.whatsappNumber,
+      email: enquiry.email ?? undefined,
+      address: enquiry.address ?? undefined,
+    });
+    await this.repository.update(enquiry.id, {
+      contact: { connect: { id: contact.id } },
     });
 
     // Get WhatsApp template
@@ -344,6 +359,17 @@ export class DigitalEnquiryService {
           // Store text values when no match found
           modelText: matchedModel ? null : modelName,
           sourceText: sourceText,
+        });
+
+        // Dual-write: link enquiry to Contact
+        const contact = await this.contactRepository.findOrCreate(dealershipId, {
+          firstName,
+          lastName,
+          whatsappNumber,
+          address: address ?? undefined,
+        });
+        await this.repository.update(enquiry.id, {
+          contact: { connect: { id: contact.id } },
         });
 
         // Send WhatsApp message if template is configured

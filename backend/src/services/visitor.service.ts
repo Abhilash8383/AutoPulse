@@ -1,4 +1,5 @@
 import { VisitorRepository } from "../repositories/visitor.repository";
+import { ContactRepository } from "../repositories/contact.repository";
 import { CreateVisitorDto } from "../dto/request/create-visitor.dto";
 import { CreateSessionDto } from "../dto/request/create-session.dto";
 import {
@@ -14,9 +15,11 @@ import prisma from "../lib/db";
 
 export class VisitorService {
   private repository: VisitorRepository;
+  private contactRepository: ContactRepository;
 
   constructor() {
     this.repository = new VisitorRepository();
+    this.contactRepository = new ContactRepository();
   }
 
   /**
@@ -67,6 +70,18 @@ export class VisitorService {
 
     if (!visitor) {
       throw new Error("Failed to create or find visitor");
+    }
+
+    // Dual-write: ensure Contact exists and link visitor
+    const contact = await this.contactRepository.findOrCreate(dealershipId, {
+      firstName: visitor.firstName,
+      lastName: visitor.lastName,
+      whatsappNumber: visitor.whatsappNumber,
+      email: visitor.email ?? undefined,
+      address: visitor.address ?? undefined,
+    });
+    if (!visitor.contactId) {
+      await this.repository.update(visitor.id, { contact: { connect: { id: contact.id } } });
     }
 
     const visitorId = visitor.id;

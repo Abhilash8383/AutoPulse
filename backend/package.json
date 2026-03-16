@@ -11,7 +11,8 @@
     "prisma:dbpush": "prisma db push",
     "prisma:studio": "prisma studio",
     "prepare": "prisma generate",
-    "backup": "node scripts/backup.js"
+    "backup": "node scripts/backup.js",
+    "backfill:contacts": "tsx scripts/backfill-contacts.ts"
   },
   "keywords": [],
   "author": "",
