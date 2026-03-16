@@ -88,13 +88,13 @@ export function VisitorDetailsModal({
 
             <div className="flex-1 min-w-0 space-y-2.5">
               <DialogTitle className="text-xl font-semibold">
-                {visitor.firstName} {visitor.lastName}
+                {[visitor.firstName, visitor.lastName].filter(Boolean).join(" ") || "—"}
               </DialogTitle>
 
               <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                 <div className="flex items-center gap-1">
                   <Phone className="h-3 w-3" />
-                  {visitor.whatsappNumber}
+                  {visitor.whatsappNumber ?? "—"}
                 </div>
                 {visitor.email && (
                   <div className="flex items-center gap-1">

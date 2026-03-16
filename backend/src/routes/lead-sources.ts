@@ -11,15 +11,39 @@ router.get(
   authenticate,
   checkPermission(PERMISSIONS.SETTINGS_LEAD_SOURCES),
   asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user?.dealershipId) {
+    const dealershipId = req.user?.dealershipId;
+    const organizationId = req.user?.organizationId;
+    const isOrgAdmin =
+      req.user?.role === "super_admin" || req.user?.role === "admin";
+
+    if (!dealershipId && !(isOrgAdmin && organizationId)) {
       res.status(401).json({ error: "Not authenticated" });
       return;
     }
+
+    if (dealershipId) {
+      const sources = await prisma.leadSource.findMany({
+        where: { dealershipId },
+        orderBy: [{ order: "asc" }, { name: "asc" }],
+      });
+      res.json({ leadSources: sources });
+      return;
+    }
+
+    const dealerships = await prisma.dealership.findMany({
+      where: { organizationId: organizationId! },
+      select: { id: true },
+    });
+    const ids = dealerships.map((d) => d.id);
+    if (ids.length === 0) {
+      res.json({ leadSources: [] });
+      return;
+    }
     const sources = await prisma.leadSource.findMany({
-      where: { dealershipId: req.user.dealershipId },
+      where: { dealershipId: { in: ids } },
       orderBy: [{ order: "asc" }, { name: "asc" }],
     });
-    res.json(sources);
+    res.json({ leadSources: sources });
   }),
 );
 

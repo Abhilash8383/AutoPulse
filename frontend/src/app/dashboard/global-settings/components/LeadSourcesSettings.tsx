@@ -48,8 +48,12 @@ export default function LeadSourcesSettings() {
     fetchingRef.current = true;
     try {
       setLoading(true);
-      const res = await apiClient.get<LeadSource[]>("/lead-sources");
-      const data = Array.isArray(res.data) ? res.data : [];
+      const res = await apiClient.get<{ leadSources?: LeadSource[] } | LeadSource[]>("/lead-sources");
+      const data = Array.isArray(res.data)
+        ? res.data
+        : (res.data && "leadSources" in res.data && Array.isArray(res.data.leadSources)
+          ? res.data.leadSources
+          : []);
       setSources(data);
       setCachedData("cache_settings_lead_sources", data);
     } catch (e) {

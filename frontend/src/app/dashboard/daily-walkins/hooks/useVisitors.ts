@@ -49,8 +49,8 @@ export function useVisitors(canViewVisitors: boolean) {
       const query = searchQuery.trim().toLowerCase();
       filtered = filtered.filter((visitor) => {
         const fullName =
-          `${visitor.firstName} ${visitor.lastName}`.toLowerCase();
-        const phone = visitor.whatsappNumber.toLowerCase();
+          `${visitor.firstName ?? ""} ${visitor.lastName ?? ""}`.trim().toLowerCase();
+        const phone = (visitor.whatsappNumber ?? "").toLowerCase();
         const email = visitor.email?.toLowerCase() || "";
 
         return (
@@ -96,7 +96,11 @@ export function useVisitors(canViewVisitors: boolean) {
         if (newVisitors.length > 0) {
           try {
             const phoneNumbers = [
-              ...new Set(newVisitors.map((v: Visitor) => v.whatsappNumber)),
+              ...new Set(
+                newVisitors
+                  .map((v: Visitor) => v.whatsappNumber ?? "")
+                  .filter(Boolean),
+              ),
             ];
             const lookupRes = await apiClient.post("/phone-lookup", {
               phones: phoneNumbers,

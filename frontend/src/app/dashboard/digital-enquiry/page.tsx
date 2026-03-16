@@ -273,8 +273,11 @@ export default function DigitalEnquiryPage() {
         apiClient.get("/lead-sources"),
         apiClient.get("/categories"),
       ]);
-      setLeadSources(leadSourcesRes.data.leadSources);
-      setCategories(categoriesRes.data.categories);
+      setLeadSources(
+        leadSourcesRes.data?.leadSources ??
+          (Array.isArray(leadSourcesRes.data) ? leadSourcesRes.data : []),
+      );
+      setCategories(categoriesRes.data?.categories ?? []);
     } catch (error) {
       console.error("Failed to fetch form data:", error);
     }

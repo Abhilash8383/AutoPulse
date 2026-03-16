@@ -18,8 +18,14 @@ export function formatDateTime(dateString: string): string {
   });
 }
 
-export function getInitials(firstName: string, lastName: string): string {
-  return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+export function getInitials(
+  firstName?: string | null,
+  lastName?: string | null,
+): string {
+  const a = (firstName ?? "").trim().charAt(0);
+  const b = (lastName ?? "").trim().charAt(0);
+  if (!a && !b) return "?";
+  return `${a}${b}`.toUpperCase();
 }
 
 export function getVisiblePages(

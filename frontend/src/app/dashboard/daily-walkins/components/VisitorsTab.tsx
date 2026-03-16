@@ -143,7 +143,7 @@ export function VisitorsTab({
                               </div>
                               <div className="min-w-0">
                                 <p className="text-sm font-medium truncate">
-                                  {visitor.firstName} {visitor.lastName}
+                                  {[visitor.firstName, visitor.lastName].filter(Boolean).join(" ") || "—"}
                                 </p>
                                 {visitor.email && (
                                   <p className="text-xs text-muted-foreground truncate">
@@ -158,7 +158,7 @@ export function VisitorsTab({
                           <td className="py-3 px-4">
                             <div className="space-y-1">
                               <p className="text-sm">
-                                {visitor.whatsappNumber || "No phone"}
+                                {(visitor.whatsappNumber ?? "").trim() || "No phone"}
                               </p>
                             </div>
                           </td>
@@ -211,7 +211,7 @@ export function VisitorsTab({
                           {/* Actions Column */}
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
-                              {phoneLookups[visitor.whatsappNumber]
+                              {phoneLookups[visitor.whatsappNumber ?? ""]
                                 ?.digitalEnquiry && (
                                 <Link
                                   href="/dashboard/digital-enquiry"
@@ -225,7 +225,7 @@ export function VisitorsTab({
                                   </Badge>
                                 </Link>
                               )}
-                              {phoneLookups[visitor.whatsappNumber]
+                              {phoneLookups[visitor.whatsappNumber ?? ""]
                                 ?.deliveryUpdate && (
                                 <Link
                                   href="/dashboard/delivery-update"
