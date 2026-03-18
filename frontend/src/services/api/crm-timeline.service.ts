@@ -11,7 +11,7 @@ export interface CrmTimelineEvent {
   contactId: string;
   leadId: string | null;
   type: string;
-  payload: any;
+  payload: Record<string, unknown> | null;
   createdByUserId: string | null;
   createdByUser: CrmTimelineUser | null;
   createdAt: string;
