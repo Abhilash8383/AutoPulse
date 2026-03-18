@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { CrmLeadStage, CrmLeadStatus } from "@prisma/client";
+import { CrmLeadStage, CrmLeadStatus, CrmLeadSourceType } from "@prisma/client";
 import { PAGINATION } from "../config/constants";
 import { CrmLeadRepository } from "../repositories/crm-lead.repository";
 import prisma from "../lib/db";
@@ -21,7 +21,7 @@ export class CrmLeadsController {
 
   /**
    * List CRM leads (pipeline/work queue).
-   * GET /api/crm/leads?limit=&skip=&search=&stage=&status=&ownerUserId=&overdue=
+   * GET /api/crm/leads?limit=&skip=&search=&stage=&status=&ownerUserId=&overdue=&sourceType=
    */
   list = async (req: Request, res: Response): Promise<void> => {
     const organizationId = req.user?.organizationId;
@@ -45,6 +45,10 @@ export class CrmLeadsController {
     const search = (req.query.search as string) || undefined;
     const stage = asEnum(req.query.stage, Object.values(CrmLeadStage));
     const status = asEnum(req.query.status, Object.values(CrmLeadStatus));
+    const sourceType = asEnum(
+      req.query.sourceType,
+      Object.values(CrmLeadSourceType),
+    );
     const ownerUserId =
       typeof req.query.ownerUserId === "string" ? req.query.ownerUserId : undefined;
     const overdue =
@@ -61,6 +65,7 @@ export class CrmLeadsController {
               search,
               stage,
               status,
+              sourceType,
               ownerUserId,
               overdue,
             })
@@ -70,6 +75,7 @@ export class CrmLeadsController {
               search,
               stage,
               status,
+              sourceType,
               ownerUserId,
               overdue,
             });
@@ -214,6 +220,77 @@ export class CrmLeadsController {
       }
 
       res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: (error as Error).message });
+    }
+  };
+
+  /**
+   * Create/Upsert an import lead for an existing contact.
+   * POST /api/crm/leads/from-contact
+   * body: { contactId }
+   */
+  fromContact = async (req: Request, res: Response): Promise<void> => {
+    const organizationId = req.user?.organizationId;
+    const dealershipId = req.user?.dealershipId;
+    const isOrgAdmin =
+      req.user?.role === "super_admin" || req.user?.role === "admin";
+
+    if (!organizationId && !dealershipId) {
+      res.status(401).json({ error: "Not authenticated or no dealership scope" });
+      return;
+    }
+
+    const contactId =
+      typeof req.body?.contactId === "string" ? req.body.contactId.trim() : "";
+    if (!contactId) {
+      res.status(400).json({ error: "contactId is required" });
+      return;
+    }
+
+    try {
+      // Ensure contact exists in scope, and resolve dealershipId for the lead
+      let contact:
+        | {
+            id: string;
+            dealershipId: string | null;
+          }
+        | null = null;
+
+      if (isOrgAdmin && organizationId) {
+        const dealerships = await prisma.dealership.findMany({
+          where: { organizationId },
+          select: { id: true },
+        });
+        const dealershipIds = dealerships.map((d) => d.id);
+        if (dealershipIds.length === 0) {
+          res.status(404).json({ error: "Contact not found in scope" });
+          return;
+        }
+        contact = await prisma.contact.findFirst({
+          where: { id: contactId, dealershipId: { in: dealershipIds } },
+          select: { id: true, dealershipId: true },
+        });
+      } else {
+        contact = await prisma.contact.findFirst({
+          where: { id: contactId, dealershipId: dealershipId! },
+          select: { id: true, dealershipId: true },
+        });
+      }
+
+      if (!contact || !contact.dealershipId) {
+        res.status(404).json({ error: "Contact not found in scope" });
+        return;
+      }
+
+      const lead = await this.repository.upsertFromSource({
+        dealershipId: contact.dealershipId,
+        contactId: contact.id,
+        sourceType: "import",
+        sourceId: contact.id,
+      });
+
+      res.json({ lead });
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
     }

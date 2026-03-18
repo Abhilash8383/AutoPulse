@@ -18,10 +18,15 @@ export class CrmLeadRepository extends BaseRepository<
     sourceId: string;
     nextFollowUpAt?: Date | null;
   }) {
+    // Default follow-up behavior:
+    // - intake leads (walk-in/digital/field) start with no follow-up until set by staff
+    // - import leads (converted contacts) get a default follow-up of +1 day
     const nextFollowUpAt =
-      input.nextFollowUpAt === undefined
-        ? new Date(Date.now() + 24 * 60 * 60 * 1000)
-        : input.nextFollowUpAt;
+      input.nextFollowUpAt !== undefined
+        ? input.nextFollowUpAt
+        : input.sourceType === "import"
+          ? new Date(Date.now() + 24 * 60 * 60 * 1000)
+          : null;
 
     const existing = await this.prisma.crmLead.findUnique({
       where: {
@@ -124,6 +129,7 @@ export class CrmLeadRepository extends BaseRepository<
       status?: CrmLeadStatus;
       ownerUserId?: string;
       overdue?: boolean;
+      sourceType?: CrmLeadSourceType;
     },
   ): Promise<{ leads: any[]; total: number }> {
     const where = this.buildWhere({
@@ -144,6 +150,7 @@ export class CrmLeadRepository extends BaseRepository<
       status?: CrmLeadStatus;
       ownerUserId?: string;
       overdue?: boolean;
+      sourceType?: CrmLeadSourceType;
     },
   ): Promise<{ leads: any[]; total: number }> {
     const dealerships = await this.prisma.dealership.findMany({
@@ -169,6 +176,7 @@ export class CrmLeadRepository extends BaseRepository<
     status?: CrmLeadStatus;
     ownerUserId?: string;
     overdue?: boolean;
+    sourceType?: CrmLeadSourceType;
   }): Prisma.CrmLeadWhereInput {
     const where: Prisma.CrmLeadWhereInput = {};
 
@@ -180,6 +188,7 @@ export class CrmLeadRepository extends BaseRepository<
     if (input.stage) where.stage = input.stage;
     if (input.status) where.status = input.status;
     if (input.ownerUserId) where.ownerUserId = input.ownerUserId;
+    if (input.sourceType) where.sourceType = input.sourceType;
 
     if (input.overdue) {
       where.status = input.status ?? "open";

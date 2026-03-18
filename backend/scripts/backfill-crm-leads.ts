@@ -47,8 +47,6 @@ async function main() {
       }),
     ]);
 
-    const nextFollowUpAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
     const leadRows = [
       ...visitors.map((v) => ({
         dealershipId,
@@ -57,7 +55,7 @@ async function main() {
         sourceId: v.id,
         stage: "new" as const,
         status: "open" as const,
-        nextFollowUpAt,
+        nextFollowUpAt: null,
       })),
       ...digitalEnquiries.map((e) => ({
         dealershipId,
@@ -66,7 +64,7 @@ async function main() {
         sourceId: e.id,
         stage: "new" as const,
         status: "open" as const,
-        nextFollowUpAt,
+        nextFollowUpAt: null,
       })),
       ...fieldInquiries.map((f) => ({
         dealershipId,
@@ -75,7 +73,7 @@ async function main() {
         sourceId: f.id,
         stage: "new" as const,
         status: "open" as const,
-        nextFollowUpAt,
+        nextFollowUpAt: null,
       })),
     ];
 

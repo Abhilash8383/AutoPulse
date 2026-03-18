@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,38 +16,65 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft } from "lucide-react";
+import { createContact } from "@/services/api/contact.service";
 
-const COUNTRY_OPTIONS = [
-  "India",
-  "United States",
-  "United Kingdom",
-  "Australia",
-  "Canada",
-  "Germany",
-  "Singapore",
-];
+const PHONE_CODES = ["+91", "+1", "+44", "+61", "+81", "+86", "+33", "+49"] as const;
 
-const PHONE_CODES = ["+91", "+1", "+44", "+61", "+81", "+86", "+33", "+49"];
+function digitsOnly(value: string) {
+  return value.replace(/\D/g, "");
+}
 
 export default function AddContactPage() {
+  const router = useRouter();
+
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [title, setTitle] = useState("");
-  const [departments, setDepartments] = useState("");
+  const [phoneCode, setPhoneCode] = useState<(typeof PHONE_CODES)[number]>("+91");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
-  const [productTags, setProductTags] = useState("");
-  const [seniority, setSeniority] = useState("");
-  const [country, setCountry] = useState("");
-  const [phoneCode, setPhoneCode] = useState("+91");
-  const [corporatePhone, setCorporatePhone] = useState("");
-  const [linkedIn, setLinkedIn] = useState("");
-  const [facebook, setFacebook] = useState("");
-  const [twitter, setTwitter] = useState("");
+  const [address, setAddress] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  const whatsappNumber = useMemo(() => {
+    const digits = digitsOnly(phoneNumber);
+    return `${phoneCode}${digits}`;
+  }, [phoneCode, phoneNumber]);
+
+  const validate = () => {
+    const fn = firstName.trim();
+    const ln = lastName.trim();
+    const digits = digitsOnly(phoneNumber);
+    if (!fn) return "First name is required";
+    if (!ln) return "Last name is required";
+    if (!digits) return "WhatsApp number is required";
+    if (digits.length < 8) return "Phone number looks too short";
+    return null;
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Contact saved (frontend only — no backend).");
+    const error = validate();
+    if (error) {
+      toast.error(error);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await createContact({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        whatsappNumber,
+        email: email.trim() ? email.trim() : undefined,
+        address: address.trim() ? address.trim() : undefined,
+      });
+      toast.success("Contact created");
+      router.push(`/dashboard/crm/leads/${res.lead.id}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to create contact");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -69,8 +98,21 @@ export default function AddContactPage() {
           <Button variant="outline" size="default" className="min-w-[80px]" asChild>
             <Link href="/dashboard/crm/contacts">Close</Link>
           </Button>
-          <Button type="submit" form="add-contact-form" size="default" className="min-w-[80px]">
-            Save
+          <Button
+            type="submit"
+            form="add-contact-form"
+            size="default"
+            className="min-w-[110px]"
+            disabled={saving}
+          >
+            {saving ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving…
+              </span>
+            ) : (
+              "Save"
+            )}
           </Button>
         </div>
       </div>
@@ -92,52 +134,34 @@ export default function AddContactPage() {
                   </Label>
                   <Input
                     id="firstName"
-                    placeholder="eg: Timothy"
+                    placeholder="eg: Rahul"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     className="h-10 text-sm sm:text-base"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="title" className="text-sm font-medium">Title</Label>
-                  <Input
-                    id="title"
-                    placeholder="eg: CTO"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="h-10 text-sm sm:text-base"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="departments" className="text-sm font-medium">Departments</Label>
-                  <Input
-                    id="departments"
-                    placeholder="eg: Engineering & Technical"
-                    value={departments}
-                    onChange={(e) => setDepartments(e.target.value)}
-                    className="h-10 text-sm sm:text-base"
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm font-medium">
-                    Email <span className="text-destructive">*</span>
+                    Email
                   </Label>
                   <Input
                     id="email"
                     type="email"
-                    placeholder="eg: timothy.collinson@example.com"
+                    placeholder="eg: rahul@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="h-10 text-sm sm:text-base"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="productTags" className="text-sm font-medium">Product Tags</Label>
+                  <Label htmlFor="address" className="text-sm font-medium">
+                    Address
+                  </Label>
                   <Input
-                    id="productTags"
-                    placeholder="Select existing tag or type to create new..."
-                    value={productTags}
-                    onChange={(e) => setProductTags(e.target.value)}
+                    id="address"
+                    placeholder="eg: Bhubaneswar"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
                     className="h-10 text-sm sm:text-base"
                   />
                 </div>
@@ -151,45 +175,23 @@ export default function AddContactPage() {
                   </Label>
                   <Input
                     id="lastName"
-                    placeholder="eg: Collinson"
+                    placeholder="eg: Kumar"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     className="h-10 text-sm sm:text-base"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="seniority" className="text-sm font-medium">Seniority</Label>
-                  <Input
-                    id="seniority"
-                    placeholder="eg: C suite"
-                    value={seniority}
-                    onChange={(e) => setSeniority(e.target.value)}
-                    className="h-10 text-sm sm:text-base"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="country" className="text-sm font-medium">
-                    Country <span className="text-destructive">*</span>
-                  </Label>
-                  <Select value={country || undefined} onValueChange={setCountry}>
-                    <SelectTrigger id="country" className="h-10 text-sm sm:text-base">
-                      <SelectValue placeholder="Eg. India" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COUNTRY_OPTIONS.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="corporatePhone" className="text-sm font-medium">
-                    Corporate Phone <span className="text-destructive">*</span>
+                  <Label htmlFor="whatsappNumber" className="text-sm font-medium">
+                    WhatsApp Number <span className="text-destructive">*</span>
                   </Label>
                   <div className="flex gap-2">
-                    <Select value={phoneCode} onValueChange={setPhoneCode}>
+                    <Select
+                      value={phoneCode}
+                      onValueChange={(v) =>
+                        setPhoneCode(v as (typeof PHONE_CODES)[number])
+                      }
+                    >
                       <SelectTrigger className="w-24 shrink-0 h-10 text-sm sm:text-base">
                         <SelectValue />
                       </SelectTrigger>
@@ -202,59 +204,20 @@ export default function AddContactPage() {
                       </SelectContent>
                     </Select>
                     <Input
-                      id="corporatePhone"
+                      id="whatsappNumber"
                       type="tel"
-                      placeholder="Phone Number"
+                      placeholder="eg: 9876543210"
                       className="flex-1 h-10 text-sm sm:text-base"
-                      value={corporatePhone}
-                      onChange={(e) => setCorporatePhone(e.target.value)}
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
                     />
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Will be saved as <span className="font-medium text-foreground">{whatsappNumber}</span>
                   </div>
                 </div>
               </div>
             </div>
-            </section>
-
-            {/* Social Media */}
-            <section className="pt-4 border-t border-border">
-              <h2 className="text-lg font-semibold text-foreground mb-5">
-                Social Media
-              </h2>
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="linkedin" className="text-sm font-medium">LinkedIn</Label>
-              <Input
-                id="linkedin"
-                type="url"
-                placeholder="eg: http://www.linkedin.com/in/username"
-                value={linkedIn}
-                onChange={(e) => setLinkedIn(e.target.value)}
-                className="h-10 text-sm sm:text-base"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="facebook" className="text-sm font-medium">Facebook</Label>
-              <Input
-                id="facebook"
-                type="url"
-                placeholder="eg: https://facebook.com/username"
-                value={facebook}
-                onChange={(e) => setFacebook(e.target.value)}
-                className="h-10 text-sm sm:text-base"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="twitter" className="text-sm font-medium">Twitter</Label>
-              <Input
-                id="twitter"
-                type="url"
-                placeholder="eg: https://twitter.com/username"
-                value={twitter}
-                onChange={(e) => setTwitter(e.target.value)}
-                className="h-10 text-sm sm:text-base"
-              />
-            </div>
-              </div>
             </section>
           </CardContent>
         </Card>

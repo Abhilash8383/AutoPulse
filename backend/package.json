@@ -14,6 +14,8 @@
     "backup": "node scripts/backup.js",
     "backfill:contacts": "tsx scripts/backfill-contacts.ts",
     "backfill:crm-leads": "tsx scripts/backfill-crm-leads.ts",
+    "backfill:delivery-ticket-contacts": "tsx scripts/backfill-delivery-ticket-contacts.ts",
+    "cleanup:lead-followups": "tsx scripts/cleanup-lead-followups.ts",
     "coverage:contacts": "tsx scripts/contact-coverage.ts",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy"

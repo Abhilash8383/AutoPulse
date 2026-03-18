@@ -157,6 +157,7 @@ model Contact {
   crmLeads         CrmLead[]
   crmTimelineEvents CrmTimelineEvent[]
   crmNotes          CrmNote[]
+  deliveryTickets   DeliveryTicket[]
 
   @@index([dealershipId])
   @@index([whatsappNumber])
@@ -512,6 +513,8 @@ model DeliveryTicket {
 
   dealershipId String?
   dealership   Dealership? @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+  contactId    String?
+  contact      Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
   model             VehicleModel       @relation(fields: [modelId], references: [id], onDelete: Cascade)
   variant           VehicleVariant?    @relation(fields: [variantId], references: [id])
@@ -521,6 +524,7 @@ model DeliveryTicket {
   @@index([whatsappNumber])
   @@index([deliveryDate])
   @@index([modelId])
+  @@index([contactId])
 }
 
 model ScheduledMessage {

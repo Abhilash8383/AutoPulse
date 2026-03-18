@@ -72,5 +72,24 @@ router.put(
   })
 );
 
+// Get dealership users for assignment dropdown (id + email)
+router.get(
+  "/users",
+  authenticate,
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user?.dealershipId) {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    const users = await prisma.user.findMany({
+      where: { dealershipId: req.user.dealershipId, isActive: true },
+      select: { id: true, email: true },
+      orderBy: { email: "asc" },
+    });
+    res.json({ users });
+  }),
+);
+
 export default router;
 
