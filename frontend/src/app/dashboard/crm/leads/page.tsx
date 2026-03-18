@@ -17,10 +17,12 @@ import {
 import Pagination from "../contacts/components/Pagination";
 import {
   getCrmLeads,
+  patchCrmLead,
   type CrmLead,
   type CrmLeadStage,
   type CrmLeadStatus,
 } from "@/services/api/crm-leads.service";
+import { getDealershipUsers, type DealershipUser } from "@/services/api/users.service";
 
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const PAGE_SIZE = 10;
@@ -70,9 +72,13 @@ function sourceLabel(source: CrmLead["sourceType"]) {
 export default function LeadsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const [view, setView] = useState<"converted" | "all">("converted");
   const [stage, setStage] = useState<CrmLeadStage | "all">("all");
   const [status, setStatus] = useState<CrmLeadStatus | "all">("open");
   const [overdue, setOverdue] = useState(false);
+  const [owner, setOwner] = useState<string | "all" | "unassigned">("all");
+  const [users, setUsers] = useState<DealershipUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
@@ -98,6 +104,27 @@ export default function LeadsPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setUsersLoading(true);
+    getDealershipUsers()
+      .then((res) => {
+        if (cancelled) return;
+        setUsers(res.users);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setUsers([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setUsersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
     setPageLoading(true);
     if (currentPage === 1 && leads.length === 0) setInitialLoading(true);
 
@@ -105,8 +132,11 @@ export default function LeadsPage() {
       limit: rowsPerPage,
       skip: (currentPage - 1) * rowsPerPage,
       search: searchQuery.trim() || undefined,
+      sourceType: view === "converted" ? "import" : undefined,
       stage: stage === "all" ? undefined : stage,
       status: status === "all" ? undefined : status,
+      ownerUserId:
+        owner === "all" || owner === "unassigned" ? undefined : owner,
       overdue: overdue || undefined,
     })
       .then((res) => {
@@ -129,7 +159,35 @@ export default function LeadsPage() {
     return () => {
       cancelled = true;
     };
-  }, [currentPage, rowsPerPage, searchQuery, stage, status, overdue]);
+  }, [currentPage, rowsPerPage, searchQuery, view, stage, status, overdue, owner]);
+
+  const onQuickUpdate = async (
+    lead: CrmLead,
+    patch: { stage?: CrmLeadStage; ownerUserId?: string | null; nextFollowUpAt?: string | null },
+  ) => {
+    const optimistic: CrmLead = {
+      ...lead,
+      ...("stage" in patch && patch.stage ? { stage: patch.stage } : {}),
+      ...("ownerUserId" in patch
+        ? {
+            ownerUserId: patch.ownerUserId ?? null,
+            ownerUser:
+              patch.ownerUserId == null
+                ? null
+                : users.find((u) => u.id === patch.ownerUserId) ?? null,
+          }
+        : {}),
+      ...("nextFollowUpAt" in patch ? { nextFollowUpAt: patch.nextFollowUpAt ?? null } : {}),
+    };
+    setLeads((prev) => prev.map((l) => (l.id === lead.id ? optimistic : l)));
+    try {
+      const updated = await patchCrmLead(lead.id, patch);
+      setLeads((prev) => prev.map((l) => (l.id === lead.id ? updated : l)));
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to update lead");
+      setLeads((prev) => prev.map((l) => (l.id === lead.id ? lead : l)));
+    }
+  };
 
   const stageOptions = useMemo(
     () =>
@@ -154,7 +212,7 @@ export default function LeadsPage() {
         <div>
           <h1 className="text-2xl font-bold">Leads</h1>
           <p className="text-sm text-muted-foreground">
-            Pipeline + follow-up queue across Walk-ins and Enquiries.
+            Converted contacts you are actively working on.
           </p>
         </div>
       </div>
@@ -183,6 +241,43 @@ export default function LeadsPage() {
             </div>
 
             <div className="flex flex-wrap gap-2 items-center">
+              <Select
+                value={view}
+                onValueChange={(v) => {
+                  setView(v as any);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[190px]">
+                  <SelectValue placeholder="View" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="converted">Converted only</SelectItem>
+                  <SelectItem value="all">All sources</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={owner}
+                onValueChange={(v) => {
+                  setOwner(v as any);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Owner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All owners</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Select
                 value={stage}
                 onValueChange={(v) => {
@@ -276,6 +371,9 @@ export default function LeadsPage() {
                     Stage
                   </th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Owner
+                  </th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Next follow-up
                   </th>
                   <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -317,8 +415,67 @@ export default function LeadsPage() {
                       </td>
                       <td className="py-3 px-4">{lead.contact.whatsappNumber}</td>
                       <td className="py-3 px-4">{sourceLabel(lead.sourceType)}</td>
-                      <td className="py-3 px-4">{stageLabel(lead.stage)}</td>
-                      <td className="py-3 px-4">{formatDate(lead.nextFollowUpAt)}</td>
+                      <td className="py-3 px-4">
+                        <Select
+                          value={lead.stage}
+                          onValueChange={(v) =>
+                            onQuickUpdate(lead, { stage: v as CrmLeadStage })
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-[170px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {stageOptions.map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {stageLabel(s)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Select
+                          value={lead.ownerUserId ?? "unassigned"}
+                          onValueChange={(v) =>
+                            onQuickUpdate(lead, {
+                              ownerUserId: v === "unassigned" ? null : v,
+                            })
+                          }
+                          disabled={usersLoading}
+                        >
+                          <SelectTrigger className="h-8 w-[220px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            {users.map((u) => (
+                              <SelectItem key={u.id} value={u.id}>
+                                {u.email}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Input
+                          type="datetime-local"
+                          className="h-8 w-[220px]"
+                          value={
+                            lead.nextFollowUpAt
+                              ? new Date(lead.nextFollowUpAt)
+                                  .toISOString()
+                                  .slice(0, 16)
+                              : ""
+                          }
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            onQuickUpdate(lead, {
+                              nextFollowUpAt: v ? new Date(v).toISOString() : null,
+                            });
+                          }}
+                        />
+                      </td>
                       <td className="py-3 px-4">{formatDate(lead.updatedAt)}</td>
                     </tr>
                   ))

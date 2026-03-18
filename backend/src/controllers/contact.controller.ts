@@ -252,4 +252,99 @@ export class ContactController {
       res.status(500).json({ error: (error as Error).message });
     }
   };
+
+  /**
+   * Get all activity for a contact across the 4 source modules.
+   * GET /api/contacts/:id/activity
+   */
+  activity = async (req: Request, res: Response): Promise<void> => {
+    const organizationId = req.user?.organizationId;
+    const dealershipId = req.user?.dealershipId;
+    const isOrgAdmin =
+      req.user?.role === "super_admin" || req.user?.role === "admin";
+
+    if (!organizationId && !dealershipId) {
+      res.status(401).json({ error: "Not authenticated or no dealership scope" });
+      return;
+    }
+
+    const id = req.params.id as string;
+    try {
+      const contact =
+        isOrgAdmin && organizationId
+          ? await this.repository.findByIdAndOrganization(id, organizationId)
+          : await this.repository.findByIdAndDealership(id, dealershipId!);
+
+      if (!contact) {
+        res.status(404).json({ error: "Contact not found" });
+        return;
+      }
+
+      const [visitors, digitalEnquiries, fieldInquiries, deliveryTickets] =
+        await Promise.all([
+          prisma.visitor.findMany({
+            where: { contactId: contact.id },
+            select: {
+              id: true,
+              createdAt: true,
+              updatedAt: true,
+              sessions: { select: { id: true, createdAt: true, status: true } },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 200,
+          }),
+          prisma.digitalEnquiry.findMany({
+            where: { contactId: contact.id },
+            select: {
+              id: true,
+              createdAt: true,
+              updatedAt: true,
+              reason: true,
+              leadScope: true,
+              leadSourceId: true,
+              interestedModelId: true,
+              interestedVariantId: true,
+              modelText: true,
+              sourceText: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 200,
+          }),
+          prisma.fieldInquiry.findMany({
+            where: { contactId: contact.id },
+            select: {
+              id: true,
+              createdAt: true,
+              updatedAt: true,
+              reason: true,
+              leadScope: true,
+              leadSourceId: true,
+              interestedModelId: true,
+              interestedVariantId: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 200,
+          }),
+          prisma.deliveryTicket.findMany({
+            where: { contactId: contact.id },
+            select: {
+              id: true,
+              createdAt: true,
+              updatedAt: true,
+              deliveryDate: true,
+              status: true,
+              modelId: true,
+              variantId: true,
+              description: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 200,
+          }),
+        ]);
+
+      res.json({ visitors, digitalEnquiries, fieldInquiries, deliveryTickets });
+    } catch (error) {
+      res.status(500).json({ error: (error as Error).message });
+    }
+  };
 }

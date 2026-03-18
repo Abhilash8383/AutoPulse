@@ -25,7 +25,13 @@ import {
   Loader2,
 } from "lucide-react";
 import Pagination from "./components/Pagination";
-import { getContacts, updateContact, type Contact } from "@/services/api/contact.service";
+import {
+  getContacts,
+  getContactActivity,
+  updateContact,
+  type Contact,
+  type ContactActivityResponse,
+} from "@/services/api/contact.service";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +40,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Eye, Pencil } from "lucide-react";
+import { Eye, Pencil, Wand2 } from "lucide-react";
+import { createLeadFromContact } from "@/services/api/crm-leads.service";
 
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const PAGE_SIZE = 10;
@@ -69,6 +76,9 @@ export default function ContactsPage() {
   const [viewOpen, setViewOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [activeContact, setActiveContact] = useState<Contact | null>(null);
+  const [viewTab, setViewTab] = useState("overview");
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activity, setActivity] = useState<ContactActivityResponse | null>(null);
 
   const [editFirstName, setEditFirstName] = useState("");
   const [editLastName, setEditLastName] = useState("");
@@ -76,6 +86,7 @@ export default function ContactsPage() {
   const [editEmail, setEditEmail] = useState("");
   const [editAddress, setEditAddress] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const [convertSavingId, setConvertSavingId] = useState<string | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(totalResults / rowsPerPage));
 
@@ -124,8 +135,32 @@ export default function ContactsPage() {
 
   const openView = (c: Contact) => {
     setActiveContact(c);
+    setViewTab("overview");
+    setActivity(null);
     setViewOpen(true);
   };
+  useEffect(() => {
+    if (!viewOpen || !activeContact) return;
+    let cancelled = false;
+    setActivityLoading(true);
+    getContactActivity(activeContact.id)
+      .then((data) => {
+        if (cancelled) return;
+        setActivity(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        toast.error(err?.response?.data?.error || "Failed to load contact activity");
+        setActivity(null);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setActivityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewOpen, activeContact?.id]);
 
   const openEdit = (c: Contact) => {
     setActiveContact(c);
@@ -167,6 +202,19 @@ export default function ContactsPage() {
       toast.error(err?.response?.data?.error || "Failed to update contact");
     } finally {
       setEditSaving(false);
+    }
+  };
+
+  const convertToLead = async (c: Contact) => {
+    setConvertSavingId(c.id);
+    try {
+      const res = await createLeadFromContact(c.id);
+      toast.success("Lead created");
+      window.location.href = `/dashboard/crm/leads/${res.lead.id}`;
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to create lead");
+    } finally {
+      setConvertSavingId(null);
     }
   };
 
@@ -368,6 +416,15 @@ export default function ContactsPage() {
                                 <Pencil className="mr-2 h-4 w-4" />
                                 Edit
                               </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => convertToLead(contact)}
+                                disabled={convertSavingId === contact.id}
+                              >
+                                <Wand2 className="mr-2 h-4 w-4" />
+                                {convertSavingId === contact.id ? "Converting…" : "Convert"}
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -381,47 +438,137 @@ export default function ContactsPage() {
 
           {/* View dialog */}
           <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-3xl">
               <DialogHeader>
                 <DialogTitle>Contact details</DialogTitle>
               </DialogHeader>
               {activeContact ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        Name
+                <Tabs value={viewTab} onValueChange={setViewTab}>
+                  <TabsList className="grid grid-cols-5 w-full">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="walkins">Walkins</TabsTrigger>
+                    <TabsTrigger value="digital">Digital</TabsTrigger>
+                    <TabsTrigger value="field">Field</TabsTrigger>
+                    <TabsTrigger value="delivery">Delivery</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="overview" className="mt-4 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Name
+                        </div>
+                        <div className="text-sm">
+                          {activeContact.firstName} {activeContact.lastName}
+                        </div>
                       </div>
-                      <div className="text-sm">
-                        {activeContact.firstName} {activeContact.lastName}
+                      <div>
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Phone
+                        </div>
+                        <div className="text-sm">{activeContact.whatsappNumber}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Email
+                        </div>
+                        <div className="text-sm">{activeContact.email ?? "—"}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Created
+                        </div>
+                        <div className="text-sm">{formatDate(activeContact.createdAt)}</div>
                       </div>
                     </div>
                     <div>
                       <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        Phone
+                        Address
                       </div>
-                      <div className="text-sm">{activeContact.whatsappNumber}</div>
+                      <div className="text-sm">{activeContact.address ?? "—"}</div>
                     </div>
-                    <div>
-                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        Email
+                  </TabsContent>
+
+                  <TabsContent value="walkins" className="mt-4">
+                    {activityLoading ? (
+                      <div className="text-sm text-muted-foreground">Loading…</div>
+                    ) : !activity || activity.visitors.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No walkins found.</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {activity.visitors.map((v) => (
+                          <div key={v.id} className="rounded-md border p-3">
+                            <div className="text-sm font-medium">Visitor #{v.id}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Created: {new Date(v.createdAt).toLocaleString("en-IN")} • Sessions:{" "}
+                              {v.sessions?.length ?? 0}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="text-sm">{activeContact.email ?? "—"}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        Created
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="digital" className="mt-4">
+                    {activityLoading ? (
+                      <div className="text-sm text-muted-foreground">Loading…</div>
+                    ) : !activity || activity.digitalEnquiries.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No digital enquiries found.</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {activity.digitalEnquiries.map((e) => (
+                          <div key={e.id} className="rounded-md border p-3">
+                            <div className="text-sm font-medium">{e.reason}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(e.createdAt).toLocaleString("en-IN")} • Scope: {e.leadScope}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="text-sm">{formatDate(activeContact.createdAt)}</div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Address
-                    </div>
-                    <div className="text-sm">{activeContact.address ?? "—"}</div>
-                  </div>
-                </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="field" className="mt-4">
+                    {activityLoading ? (
+                      <div className="text-sm text-muted-foreground">Loading…</div>
+                    ) : !activity || activity.fieldInquiries.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No field inquiries found.</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {activity.fieldInquiries.map((f) => (
+                          <div key={f.id} className="rounded-md border p-3">
+                            <div className="text-sm font-medium">{f.reason}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(f.createdAt).toLocaleString("en-IN")} • Scope: {f.leadScope}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="delivery" className="mt-4">
+                    {activityLoading ? (
+                      <div className="text-sm text-muted-foreground">Loading…</div>
+                    ) : !activity || activity.deliveryTickets.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No delivery tickets found.</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {activity.deliveryTickets.map((t) => (
+                          <div key={t.id} className="rounded-md border p-3">
+                            <div className="text-sm font-medium">Ticket #{t.id}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Delivery: {new Date(t.deliveryDate).toLocaleDateString("en-IN")} • Status: {t.status}
+                            </div>
+                            {t.description ? (
+                              <div className="text-sm mt-2 text-muted-foreground">{t.description}</div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
               ) : null}
               <DialogFooter>
                 <Button variant="outline" onClick={() => setViewOpen(false)}>

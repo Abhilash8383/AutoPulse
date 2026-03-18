@@ -64,6 +64,7 @@ export async function getCrmLeads(params?: {
   status?: CrmLeadStatus;
   ownerUserId?: string;
   overdue?: boolean;
+  sourceType?: CrmLeadSourceType;
 }): Promise<CrmLeadsResponse> {
   const { data } = await apiClient.get<CrmLeadsResponse>("/crm/leads", {
     params: {
@@ -74,6 +75,7 @@ export async function getCrmLeads(params?: {
       ...(params?.status ? { status: params.status } : {}),
       ...(params?.ownerUserId ? { ownerUserId: params.ownerUserId } : {}),
       ...(params?.overdue ? { overdue: true } : {}),
+      ...(params?.sourceType ? { sourceType: params.sourceType } : {}),
     },
   });
   return data;
@@ -94,6 +96,13 @@ export async function patchCrmLead(
   }>,
 ): Promise<CrmLead> {
   const { data } = await apiClient.patch<CrmLead>(`/crm/leads/${id}`, payload);
+  return data;
+}
+
+export async function createLeadFromContact(contactId: string): Promise<{ lead: CrmLead }> {
+  const { data } = await apiClient.post<{ lead: CrmLead }>("/crm/leads/from-contact", {
+    contactId,
+  });
   return data;
 }
 

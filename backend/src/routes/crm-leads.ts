@@ -28,5 +28,12 @@ router.patch(
   asyncHandler(controller.update),
 );
 
+router.post(
+  "/from-contact",
+  authenticate,
+  checkPermission(PERMISSIONS.DAILY_WALKINS_VISITORS),
+  asyncHandler(controller.fromContact),
+);
+
 export default router;
 

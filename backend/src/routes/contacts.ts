@@ -25,6 +25,12 @@ router.get(
   checkPermission(PERMISSIONS.DAILY_WALKINS_VISITORS),
   asyncHandler(controller.getById),
 );
+router.get(
+  "/:id/activity",
+  authenticate,
+  checkPermission(PERMISSIONS.DAILY_WALKINS_VISITORS),
+  asyncHandler(controller.activity),
+);
 router.patch(
   "/:id",
   authenticate,

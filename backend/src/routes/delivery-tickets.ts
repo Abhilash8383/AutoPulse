@@ -4,8 +4,10 @@ import { whatsappClient } from "../lib/whatsapp";
 import { authenticate, asyncHandler } from "../middleware/auth";
 import { checkPermission } from "../middleware/permissions";
 import { PERMISSIONS } from "../config/permissions";
+import { ContactRepository } from "../repositories/contact.repository";
 
 const router: Router = Router();
+const contactRepository = new ContactRepository();
 
 // Create delivery ticket
 router.post(
@@ -53,6 +55,13 @@ router.post(
         deliveryDate: deliveryDateObj,
         whatsappContactId: null,
         dealershipId: req.user.dealershipId,
+        contactId: (await contactRepository.findOrCreate(req.user.dealershipId, {
+          firstName,
+          lastName,
+          whatsappNumber,
+          email: email || undefined,
+          address: address || undefined,
+        })).id,
         modelId,
         variantId: variantId || null,
         messageSent: scheduleOption === "now" || false,
