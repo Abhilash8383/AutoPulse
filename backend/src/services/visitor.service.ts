@@ -1,5 +1,6 @@
 import { VisitorRepository } from "../repositories/visitor.repository";
 import { ContactRepository } from "../repositories/contact.repository";
+import { CrmLeadRepository } from "../repositories/crm-lead.repository";
 import { CreateVisitorDto } from "../dto/request/create-visitor.dto";
 import { CreateSessionDto } from "../dto/request/create-session.dto";
 import {
@@ -17,10 +18,12 @@ import prisma from "../lib/db";
 export class VisitorService {
   private repository: VisitorRepository;
   private contactRepository: ContactRepository;
+  private crmLeadRepository: CrmLeadRepository;
 
   constructor() {
     this.repository = new VisitorRepository();
     this.contactRepository = new ContactRepository();
+    this.crmLeadRepository = new CrmLeadRepository();
   }
 
   /**
@@ -63,6 +66,13 @@ export class VisitorService {
     if (!visitor) {
       throw new Error("Failed to create or find visitor");
     }
+
+    await this.crmLeadRepository.upsertFromSource({
+      dealershipId,
+      contactId: contact.id,
+      sourceType: "visitor",
+      sourceId: visitor.id,
+    });
 
     const resolved = resolveDisplay(visitor);
 

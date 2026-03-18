@@ -22,11 +22,17 @@ import bulkUploadJobsRoutes from "./bulk-upload-jobs";
 import exportRoutes from "./export.routes";
 import organizationsRoutes from "./organizations";
 import contactsRoutes from "./contacts";
+import crmLeadsRoutes from "./crm-leads";
+import crmNotesRoutes from "./crm-notes";
+import crmTimelineRoutes from "./crm-timeline";
 
 const router: ExpressRouter = Router();
 
 // Ensure contacts route is mounted (GET /api/contacts)
 router.use("/contacts", contactsRoutes);
+router.use("/crm/leads", crmLeadsRoutes);
+router.use("/crm/notes", crmNotesRoutes);
+router.use("/crm/timeline", crmTimelineRoutes);
 
 // Auth routes
 router.use("/auth", authRoutes);
