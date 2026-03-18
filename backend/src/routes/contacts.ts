@@ -13,11 +13,23 @@ router.get(
   checkPermission(PERMISSIONS.DAILY_WALKINS_VISITORS),
   asyncHandler(controller.list),
 );
+router.post(
+  "/",
+  authenticate,
+  checkPermission(PERMISSIONS.DAILY_WALKINS_VISITORS),
+  asyncHandler(controller.create),
+);
 router.get(
   "/:id",
   authenticate,
   checkPermission(PERMISSIONS.DAILY_WALKINS_VISITORS),
   asyncHandler(controller.getById),
+);
+router.patch(
+  "/:id",
+  authenticate,
+  checkPermission(PERMISSIONS.DAILY_WALKINS_VISITORS),
+  asyncHandler(controller.update),
 );
 
 export default router;
