@@ -248,7 +248,7 @@ export default function LeadsPage() {
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger className="w-[190px]">
+                <SelectTrigger className="w-full sm:w-[190px]">
                   <SelectValue placeholder="View" />
                 </SelectTrigger>
                 <SelectContent>
@@ -264,7 +264,7 @@ export default function LeadsPage() {
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Owner" />
                 </SelectTrigger>
                 <SelectContent>
@@ -285,7 +285,7 @@ export default function LeadsPage() {
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="Stage" />
                 </SelectTrigger>
                 <SelectContent>
@@ -305,7 +305,7 @@ export default function LeadsPage() {
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-full sm:w-[160px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -336,7 +336,7 @@ export default function LeadsPage() {
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-full sm:w-[120px]">
                   <SelectValue placeholder="Rows" />
                 </SelectTrigger>
                 <SelectContent>
@@ -422,7 +422,7 @@ export default function LeadsPage() {
                             onQuickUpdate(lead, { stage: v as CrmLeadStage })
                           }
                         >
-                          <SelectTrigger className="h-8 w-[170px]">
+                          <SelectTrigger className="h-8 w-full sm:w-[170px]">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -444,7 +444,7 @@ export default function LeadsPage() {
                           }
                           disabled={usersLoading}
                         >
-                          <SelectTrigger className="h-8 w-[220px]">
+                          <SelectTrigger className="h-8 w-full sm:w-[220px]">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -460,7 +460,7 @@ export default function LeadsPage() {
                       <td className="py-3 px-4">
                         <Input
                           type="datetime-local"
-                          className="h-8 w-[220px]"
+                          className="h-8 w-full sm:w-[220px]"
                           value={
                             lead.nextFollowUpAt
                               ? new Date(lead.nextFollowUpAt)

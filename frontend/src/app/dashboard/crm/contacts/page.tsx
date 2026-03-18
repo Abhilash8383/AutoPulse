@@ -293,7 +293,7 @@ export default function ContactsPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-muted text-muted-foreground">
+        <TabsList className="bg-muted text-muted-foreground w-full overflow-x-auto">
           <TabsTrigger value="all">All contacts</TabsTrigger>
           <TabsTrigger value="list">Contact List</TabsTrigger>
         </TabsList>
@@ -490,7 +490,7 @@ export default function ContactsPage() {
               </DialogHeader>
               {activeContact ? (
                 <Tabs value={viewTab} onValueChange={setViewTab}>
-                  <TabsList className="grid grid-cols-5 w-full">
+                  <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full gap-1">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="walkins">Walkins</TabsTrigger>
                     <TabsTrigger value="digital">Digital</TabsTrigger>
