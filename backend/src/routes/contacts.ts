@@ -29,19 +29,19 @@ router.get(
   asyncHandler(controller.activityFeed),
 );
 router.get(
-  "/:id",
+  "/:id(c[a-zA-Z0-9]+)",
   authenticate,
   checkPermission(PERMISSIONS.DAILY_WALKINS_VISITORS),
   asyncHandler(controller.getById),
 );
 router.get(
-  "/:id/activity",
+  "/:id(c[a-zA-Z0-9]+)/activity",
   authenticate,
   checkPermission(PERMISSIONS.DAILY_WALKINS_VISITORS),
   asyncHandler(controller.activity),
 );
 router.patch(
-  "/:id",
+  "/:id(c[a-zA-Z0-9]+)",
   authenticate,
   checkPermission(PERMISSIONS.DAILY_WALKINS_VISITORS),
   asyncHandler(controller.update),
