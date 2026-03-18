@@ -347,4 +347,307 @@ export class ContactController {
       res.status(500).json({ error: (error as Error).message });
     }
   };
+
+  /**
+   * Unified activity feed across the 4 intake modules.
+   * This is used by the Contacts page table so pagination/Total Results
+   * reflect activity rows (e.g. Daily Walkins + Digital Enquiry + Field Inquiry + Delivery Update).
+   *
+   * GET /api/contacts/activity?limit=&skip=&search=
+   */
+  activityFeed = async (req: Request, res: Response): Promise<void> => {
+    const organizationId = req.user?.organizationId;
+    const dealershipId = req.user?.dealershipId;
+    const isOrgAdmin =
+      req.user?.role === "super_admin" || req.user?.role === "admin";
+
+    if (!organizationId && !dealershipId) {
+      res.status(401).json({ error: "Not authenticated or no dealership scope" });
+      return;
+    }
+
+    const limit = parseInt(
+      (req.query.limit as string) || String(PAGINATION.DEFAULT_LIMIT),
+      10,
+    );
+    const skip = parseInt(
+      (req.query.skip as string) || String(PAGINATION.DEFAULT_SKIP),
+      10,
+    );
+    const search = (req.query.search as string) || undefined;
+
+    try {
+      let dealershipIds: string[] = [];
+      if (isOrgAdmin && organizationId) {
+        const dealerships = await prisma.dealership.findMany({
+          where: { organizationId },
+          select: { id: true },
+        });
+        dealershipIds = dealerships.map((d) => d.id);
+      } else if (dealershipId) {
+        dealershipIds = [dealershipId];
+      }
+
+      if (dealershipIds.length === 0) {
+        res.json({
+          activities: [],
+          total: 0,
+          limit,
+          skip,
+          hasMore: false,
+        });
+        return;
+      }
+
+      // Fetch enough rows to build a single sorted feed.
+      // For your current datasets (234 rows total), this is safe and exact.
+      const [visitors, digitalEnquiries, fieldInquiries, deliveryTickets] =
+        await Promise.all([
+          prisma.visitor.findMany({
+            where: { dealershipId: { in: dealershipIds } },
+            select: {
+              id: true,
+              createdAt: true,
+              contactId: true,
+              firstName: true,
+              lastName: true,
+              whatsappNumber: true,
+              email: true,
+              address: true,
+              contact: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  whatsappNumber: true,
+                  email: true,
+                  address: true,
+                  createdAt: true,
+                  updatedAt: true,
+                  dealershipId: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          }),
+          prisma.digitalEnquiry.findMany({
+            where: { dealershipId: { in: dealershipIds } },
+            select: {
+              id: true,
+              createdAt: true,
+              contactId: true,
+              firstName: true,
+              lastName: true,
+              whatsappNumber: true,
+              email: true,
+              address: true,
+              reason: true,
+              contact: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  whatsappNumber: true,
+                  email: true,
+                  address: true,
+                  createdAt: true,
+                  updatedAt: true,
+                  dealershipId: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          }),
+          prisma.fieldInquiry.findMany({
+            where: { dealershipId: { in: dealershipIds } },
+            select: {
+              id: true,
+              createdAt: true,
+              contactId: true,
+              firstName: true,
+              lastName: true,
+              whatsappNumber: true,
+              email: true,
+              address: true,
+              reason: true,
+              contact: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  whatsappNumber: true,
+                  email: true,
+                  address: true,
+                  createdAt: true,
+                  updatedAt: true,
+                  dealershipId: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          }),
+          prisma.deliveryTicket.findMany({
+            where: { dealershipId: { in: dealershipIds } },
+            select: {
+              id: true,
+              deliveryDate: true,
+              contactId: true,
+              firstName: true,
+              lastName: true,
+              whatsappNumber: true,
+              email: true,
+              address: true,
+              status: true,
+              description: true,
+              contact: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  whatsappNumber: true,
+                  email: true,
+                  address: true,
+                  createdAt: true,
+                  updatedAt: true,
+                  dealershipId: true,
+                },
+              },
+            },
+            orderBy: { deliveryDate: "desc" },
+          }),
+        ]);
+
+      type ActivityRow = {
+        id: string;
+        activityType: "visitor" | "digital_enquiry" | "field_inquiry" | "delivery_ticket";
+        createdAt: Date;
+        contactId: string | null;
+        contact: {
+          id: string;
+          firstName: string;
+          lastName: string;
+          whatsappNumber: string;
+          email: string | null;
+          address: string | null;
+          createdAt: Date;
+          updatedAt: Date;
+          dealershipId: string | null;
+        } | null;
+        fallback: {
+          firstName: string | null;
+          lastName: string | null;
+          whatsappNumber: string | null;
+          email: string | null;
+          address: string | null;
+        };
+      };
+
+      const activities: ActivityRow[] = [
+        ...visitors.map((v) => ({
+          id: v.id,
+          activityType: "visitor" as const,
+          createdAt: v.createdAt,
+          contactId: v.contactId ?? null,
+          contact: v.contact ?? null,
+          fallback: {
+            firstName: v.firstName ?? null,
+            lastName: v.lastName ?? null,
+            whatsappNumber: v.whatsappNumber ?? null,
+            email: v.email ?? null,
+            address: v.address ?? null,
+          },
+        })),
+        ...digitalEnquiries.map((e) => ({
+          id: e.id,
+          activityType: "digital_enquiry" as const,
+          createdAt: e.createdAt,
+          contactId: e.contactId ?? null,
+          contact: e.contact ?? null,
+          fallback: {
+            firstName: e.firstName ?? null,
+            lastName: e.lastName ?? null,
+            whatsappNumber: e.whatsappNumber ?? null,
+            email: e.email ?? null,
+            address: e.address ?? null,
+          },
+        })),
+        ...fieldInquiries.map((f) => ({
+          id: f.id,
+          activityType: "field_inquiry" as const,
+          createdAt: f.createdAt,
+          contactId: f.contactId ?? null,
+          contact: f.contact ?? null,
+          fallback: {
+            firstName: f.firstName ?? null,
+            lastName: f.lastName ?? null,
+            whatsappNumber: f.whatsappNumber ?? null,
+            email: f.email ?? null,
+            address: f.address ?? null,
+          },
+        })),
+        ...deliveryTickets.map((t) => ({
+          id: t.id,
+          activityType: "delivery_ticket" as const,
+          createdAt: t.deliveryDate,
+          contactId: t.contactId ?? null,
+          contact: t.contact ?? null,
+          fallback: {
+            firstName: t.firstName ?? null,
+            lastName: t.lastName ?? null,
+            whatsappNumber: t.whatsappNumber ?? null,
+            email: t.email ?? null,
+            address: t.address ?? null,
+          },
+        })),
+      ];
+
+      const normalizedSearch = search?.trim().toLowerCase();
+      const filtered =
+        normalizedSearch && normalizedSearch.length > 0
+          ? activities.filter((a) => {
+              const values = [
+                a.contact?.firstName,
+                a.contact?.lastName,
+                a.contact?.whatsappNumber,
+                a.contact?.email,
+                a.contact?.address,
+                a.fallback.firstName,
+                a.fallback.lastName,
+                a.fallback.whatsappNumber,
+                a.fallback.email,
+                a.fallback.address,
+              ];
+              const combined = values
+                .filter((v) => typeof v === "string" && v.trim().length > 0)
+                .join(" ")
+                .toLowerCase();
+              return combined.includes(normalizedSearch);
+            })
+          : activities;
+
+      filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+      const paged = filtered.slice(skip, skip + limit);
+
+      res.json({
+        activities: paged.map((a) => ({
+          ...a,
+          createdAt: a.createdAt.toISOString(),
+          contact: a.contact
+            ? {
+                ...a.contact,
+                createdAt: a.contact.createdAt.toISOString(),
+                updatedAt: a.contact.updatedAt.toISOString(),
+              }
+            : null,
+        })),
+        total: filtered.length,
+        limit,
+        skip,
+        hasMore: skip + paged.length < filtered.length,
+      });
+    } catch (error) {
+      res.status(500).json({ error: (error as Error).message });
+    }
+  };
 }

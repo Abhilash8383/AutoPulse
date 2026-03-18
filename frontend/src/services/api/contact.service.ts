@@ -20,6 +20,35 @@ export interface ContactsResponse {
   hasMore: boolean;
 }
 
+export type ContactActivityType =
+  | "visitor"
+  | "digital_enquiry"
+  | "field_inquiry"
+  | "delivery_ticket";
+
+export interface ContactActivityRow {
+  id: string;
+  activityType: ContactActivityType;
+  createdAt: string;
+  contactId: string | null;
+  contact: Contact | null;
+  fallback: {
+    firstName: string | null;
+    lastName: string | null;
+    whatsappNumber: string | null;
+    email: string | null;
+    address: string | null;
+  };
+}
+
+export interface ContactActivitiesResponse {
+  activities: ContactActivityRow[];
+  total: number;
+  limit: number;
+  skip: number;
+  hasMore: boolean;
+}
+
 export interface CreateContactResponse {
   contact: Contact;
   lead: { id: string };
@@ -86,6 +115,21 @@ export async function getContacts(params?: {
   search?: string;
 }): Promise<ContactsResponse> {
   const { data } = await apiClient.get<ContactsResponse>("/contacts", {
+    params: {
+      limit: params?.limit ?? 50,
+      skip: params?.skip ?? 0,
+      ...(params?.search?.trim() ? { search: params.search.trim() } : {}),
+    },
+  });
+  return data;
+}
+
+export async function getContactActivities(params?: {
+  limit?: number;
+  skip?: number;
+  search?: string;
+}): Promise<ContactActivitiesResponse> {
+  const { data } = await apiClient.get<ContactActivitiesResponse>("/contacts/activity", {
     params: {
       limit: params?.limit ?? 50,
       skip: params?.skip ?? 0,
