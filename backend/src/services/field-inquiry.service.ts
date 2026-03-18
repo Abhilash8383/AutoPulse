@@ -1,5 +1,6 @@
 import { FieldInquiryRepository } from "../repositories/field-inquiry.repository";
 import { ContactRepository } from "../repositories/contact.repository";
+import { CrmLeadRepository } from "../repositories/crm-lead.repository";
 import { CreateFieldInquiryDto } from "../dto/request/create-field-inquiry.dto";
 import { UpdateLeadScopeDto } from "../dto/request/update-lead-scope.dto";
 import {
@@ -21,10 +22,12 @@ import prisma from "../lib/db";
 export class FieldInquiryService {
   private repository: FieldInquiryRepository;
   private contactRepository: ContactRepository;
+  private crmLeadRepository: CrmLeadRepository;
 
   constructor() {
     this.repository = new FieldInquiryRepository();
     this.contactRepository = new ContactRepository();
+    this.crmLeadRepository = new CrmLeadRepository();
   }
 
   /**
@@ -57,6 +60,13 @@ export class FieldInquiryService {
       variant: data.interestedVariantId
         ? { connect: { id: data.interestedVariantId } }
         : undefined,
+    });
+
+    await this.crmLeadRepository.upsertFromSource({
+      dealershipId,
+      contactId: contact.id,
+      sourceType: "field_inquiry",
+      sourceId: enquiry.id,
     });
 
     // Get WhatsApp template

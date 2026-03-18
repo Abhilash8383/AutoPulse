@@ -1,5 +1,6 @@
 import { DigitalEnquiryRepository } from "../repositories/digital-enquiry.repository";
 import { ContactRepository } from "../repositories/contact.repository";
+import { CrmLeadRepository } from "../repositories/crm-lead.repository";
 import { CreateDigitalEnquiryDto } from "../dto/request/create-digital-enquiry.dto";
 import { UpdateLeadScopeDto } from "../dto/request/update-lead-scope.dto";
 import {
@@ -22,10 +23,12 @@ import prisma from "../lib/db";
 export class DigitalEnquiryService {
   private repository: DigitalEnquiryRepository;
   private contactRepository: ContactRepository;
+  private crmLeadRepository: CrmLeadRepository;
 
   constructor() {
     this.repository = new DigitalEnquiryRepository();
     this.contactRepository = new ContactRepository();
+    this.crmLeadRepository = new CrmLeadRepository();
   }
 
   /**
@@ -60,6 +63,13 @@ export class DigitalEnquiryService {
         : undefined,
       sourceText: data.sourceText || null,
       modelText: data.modelText || null,
+    });
+
+    await this.crmLeadRepository.upsertFromSource({
+      dealershipId,
+      contactId: contact.id,
+      sourceType: "digital_enquiry",
+      sourceId: enquiry.id,
     });
 
     // Get WhatsApp template

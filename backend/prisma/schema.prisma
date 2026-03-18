@@ -22,6 +22,33 @@ enum UserRole {
 }
 
 // ============================================================
+// CRM LEADS (Unified pipeline across all intake sources)
+// ============================================================
+enum CrmLeadSourceType {
+  visitor
+  digital_enquiry
+  field_inquiry
+  import
+}
+
+enum CrmLeadStage {
+  new
+  contacted
+  qualified
+  appointment
+  test_drive
+  negotiation
+  won
+  lost
+}
+
+enum CrmLeadStatus {
+  open
+  won
+  lost
+}
+
+// ============================================================
 // ORGANIZATION MODEL (Tenant Root)
 // ============================================================
 // Every piece of data belongs to an Organization.
@@ -96,6 +123,9 @@ model Dealership {
   visitors          Visitor[]
   whatsappTemplates WhatsAppTemplate[]
   contacts          Contact[]
+  crmLeads          CrmLead[]
+  crmTimelineEvents CrmTimelineEvent[]
+  crmNotes          CrmNote[]
 
   @@index([organizationId])
 }
@@ -124,11 +154,102 @@ model Contact {
   visitors        Visitor[]
   digitalEnquiries DigitalEnquiry[]
   fieldInquiries   FieldInquiry[]
+  crmLeads         CrmLead[]
+  crmTimelineEvents CrmTimelineEvent[]
+  crmNotes          CrmNote[]
 
   @@index([dealershipId])
   @@index([whatsappNumber])
   @@index([dealershipId, normalizedWhatsappNumber])
   @@unique([dealershipId, whatsappNumber])
+}
+
+model CrmLead {
+  id String @id @default(cuid())
+
+  // Tenant
+  dealershipId String?
+  dealership   Dealership? @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+
+  // Person
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  // Source link (idempotent upsert)
+  sourceType CrmLeadSourceType
+  sourceId   String
+
+  // Pipeline
+  stage  CrmLeadStage  @default(new)
+  status CrmLeadStatus @default(open)
+
+  // Ownership + follow-up
+  ownerUserId String?
+  ownerUser   User?   @relation("CrmLeadOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  nextFollowUpAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  timelineEvents CrmTimelineEvent[]
+  notes          CrmNote[]
+
+  @@index([dealershipId, stage])
+  @@index([ownerUserId, nextFollowUpAt])
+  @@index([contactId])
+  @@unique([dealershipId, sourceType, sourceId])
+}
+
+model CrmTimelineEvent {
+  id String @id @default(cuid())
+
+  // Tenant
+  dealershipId String?
+  dealership   Dealership? @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+
+  // Link to person/lead
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  leadId String?
+  lead   CrmLead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  type    String
+  payload Json?
+
+  createdByUserId String?
+  createdByUser   User? @relation("CrmTimelineCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([dealershipId, createdAt])
+  @@index([contactId, createdAt])
+  @@index([leadId, createdAt])
+}
+
+model CrmNote {
+  id String @id @default(cuid())
+
+  // Tenant
+  dealershipId String?
+  dealership   Dealership? @relation(fields: [dealershipId], references: [id], onDelete: Cascade)
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  leadId String?
+  lead   CrmLead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  body String
+
+  createdByUserId String?
+  createdByUser   User? @relation("CrmNoteCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([dealershipId, createdAt])
+  @@index([contactId, createdAt])
+  @@index([leadId, createdAt])
 }
 
 model User {
@@ -154,6 +275,10 @@ model User {
 
   // Granular permissions (for users, admins have all by default)
   permissions UserPermission?
+
+  ownedCrmLeads CrmLead[] @relation("CrmLeadOwner")
+  crmTimelineEvents CrmTimelineEvent[] @relation("CrmTimelineCreatedBy")
+  crmNotes          CrmNote[] @relation("CrmNoteCreatedBy")
 
   @@index([organizationId])
   @@index([dealershipId])
