@@ -31,8 +31,6 @@ import {
   PanelLeftClose,
   PanelLeft,
   UserCircle,
-  CircleDollarSign,
-  CheckSquare,
   Target,
 } from "lucide-react";
 
@@ -449,70 +447,6 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent side="right" sideOffset={8}>Contacts</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      prefetch={false}
-                      href="/dashboard/crm/deals"
-                      onClick={() => setSidebarOpen(false)}
-                      className="w-full"
-                    >
-                      <Button
-                        variant={
-                          pathname === "/dashboard/crm/deals" || pathname?.startsWith("/dashboard/crm/deals/")
-                            ? "secondary"
-                            : "ghost"
-                        }
-                        className={`w-full h-10 justify-start relative min-h-[40px] ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
-                      >
-                        <CircleDollarSign
-                          className={`h-5 w-5 flex-shrink-0 ${sidebarCollapsed ? "lg:mr-0" : "mr-3"}`}
-                          style={{ color: "#1976B8" }}
-                        />
-                        <span className={`text-sm font-medium ${sidebarCollapsed ? "lg:hidden" : ""}`}>Deals</span>
-                        {(pathname === "/dashboard/crm/deals" || pathname?.startsWith("/dashboard/crm/deals/")) && (
-                          <div
-                            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full"
-                            style={{ backgroundColor: "#1976B8" }}
-                          />
-                        )}
-                      </Button>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={8}>Deals</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      prefetch={false}
-                      href="/dashboard/crm/tasks"
-                      onClick={() => setSidebarOpen(false)}
-                      className="w-full"
-                    >
-                      <Button
-                        variant={
-                          pathname === "/dashboard/crm/tasks" || pathname?.startsWith("/dashboard/crm/tasks/")
-                            ? "secondary"
-                            : "ghost"
-                        }
-                        className={`w-full h-10 justify-start relative min-h-[40px] ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
-                      >
-                        <CheckSquare
-                          className={`h-5 w-5 flex-shrink-0 ${sidebarCollapsed ? "lg:mr-0" : "mr-3"}`}
-                          style={{ color: "#1976B8" }}
-                        />
-                        <span className={`text-sm font-medium ${sidebarCollapsed ? "lg:hidden" : ""}`}>Tasks</span>
-                        {(pathname === "/dashboard/crm/tasks" || pathname?.startsWith("/dashboard/crm/tasks/")) && (
-                          <div
-                            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full"
-                            style={{ backgroundColor: "#1976B8" }}
-                          />
-                        )}
-                      </Button>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={8}>Tasks</TooltipContent>
                 </Tooltip>
               </div>
 

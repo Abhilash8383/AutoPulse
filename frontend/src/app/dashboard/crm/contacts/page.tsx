@@ -60,7 +60,6 @@ function formatDate(iso: string) {
 }
 
 export default function ContactsPage() {
-  const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -291,14 +290,7 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-muted text-muted-foreground w-full overflow-x-auto">
-          <TabsTrigger value="all">All contacts</TabsTrigger>
-          <TabsTrigger value="list">Contact List</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="all" className="mt-4 space-y-4">
+      <div className="mt-4 space-y-4">
           {/* Search - same pattern as Daily Walkins / Digital Enquiry / Field Inquiry */}
           <div className="relative">
             <div className="relative">
@@ -338,13 +330,6 @@ export default function ContactsPage() {
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="w-10 py-3 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        <input
-                          type="checkbox"
-                          className="rounded border-input"
-                          aria-label="Select all"
-                        />
-                      </th>
                       <SortHeader label="Name" sortKeyName="name" />
                       <SortHeader label="Email" sortKeyName="email" />
                       <SortHeader label="Phone" sortKeyName="phone" />
@@ -359,7 +344,7 @@ export default function ContactsPage() {
                     {initialLoading ? (
                       <tr>
                         <td
-                          colSpan={7}
+                          colSpan={6}
                           className="py-12 text-center text-muted-foreground text-sm"
                         >
                           <span className="inline-flex items-center gap-2">
@@ -371,7 +356,7 @@ export default function ContactsPage() {
                     ) : activities.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={7}
+                          colSpan={6}
                           className="py-12 text-center text-muted-foreground text-sm"
                         >
                           No activity found.
@@ -383,21 +368,6 @@ export default function ContactsPage() {
                           key={activity.id}
                           className="border-b hover:bg-muted/30 transition-colors"
                         >
-                          <td className="py-3 px-4">
-                            <input
-                              type="checkbox"
-                              className="rounded border-input"
-                                aria-label={`Select ${
-                                  activity.contact?.firstName ??
-                                  activity.fallback.firstName ??
-                                  ""
-                                } ${
-                                  activity.contact?.lastName ??
-                                  activity.fallback.lastName ??
-                                  ""
-                                }`}
-                            />
-                          </td>
                           <td className="py-3 px-4 text-sm">
                             {(activity.contact?.firstName ??
                               activity.fallback.firstName ??
@@ -716,8 +686,8 @@ export default function ContactsPage() {
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger className="w-16 h-8 text-sm">
-                  <SelectValue />
+                <SelectTrigger className="w-28 h-8 text-sm">
+                  <SelectValue placeholder={String(rowsPerPage)} />
                 </SelectTrigger>
                 <SelectContent>
                   {ROWS_PER_PAGE_OPTIONS.map((n) => (
@@ -738,16 +708,7 @@ export default function ContactsPage() {
               pageLoading={pageLoading}
             />
           </div>
-        </TabsContent>
-
-        <TabsContent value="list" className="mt-4">
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground text-sm">
-              Contact lists will be available here.
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      </div>
     </div>
   );
 }
