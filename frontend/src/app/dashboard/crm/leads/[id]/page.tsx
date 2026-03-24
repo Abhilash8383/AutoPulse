@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -24,6 +25,8 @@ import {
 } from "@/services/api/crm-leads.service";
 import { createCrmNote, getCrmNotes, type CrmNote } from "@/services/api/crm-notes.service";
 import { getCrmTimeline, type CrmTimelineEvent } from "@/services/api/crm-timeline.service";
+import { getContactActivity, type ContactActivityResponse } from "@/services/api/contact.service";
+import apiClient from "@/lib/api";
 
 function formatName(lead: CrmLead) {
   const name = [lead.contact.firstName, lead.contact.lastName]
@@ -74,6 +77,55 @@ export default function LeadDetailPage() {
   const [notes, setNotes] = useState<CrmNote[]>([]);
   const [noteDraft, setNoteDraft] = useState("");
 
+  const [contactActivityLoading, setContactActivityLoading] = useState(false);
+  const [contactActivity, setContactActivity] = useState<ContactActivityResponse | null>(null);
+  const [sourceRecordError, setSourceRecordError] = useState<string | null>(null);
+  const [sourceSaving, setSourceSaving] = useState(false);
+
+  type LeadScopePriority = "hot" | "warm" | "cold";
+
+  type LeadSourceOption = { id: string; name: string };
+  type VehicleModelOption = {
+    id: string;
+    name: string;
+    variants?: Array<{ id: string; name: string }>;
+  };
+  type VehicleCategoryOption = { id: string; name: string; models: VehicleModelOption[] };
+
+  const [leadScopeEditor, setLeadScopeEditor] = useState<LeadScopePriority>("warm");
+  const [leadSourceIdEditor, setLeadSourceIdEditor] = useState<string>("");
+  const [interestedModelIdEditor, setInterestedModelIdEditor] = useState<string>("");
+  const [interestedVariantIdEditor, setInterestedVariantIdEditor] = useState<string>("");
+  const [sourceReasonEditor, setSourceReasonEditor] = useState<string>("");
+
+  const [deliveryModelIdEditor, setDeliveryModelIdEditor] = useState<string>("");
+  const [deliveryVariantIdEditor, setDeliveryVariantIdEditor] = useState<string>("");
+  const [deliveryDateEditor, setDeliveryDateEditor] = useState<string>("");
+  const [deliveryStatusEditor, setDeliveryStatusEditor] = useState<string>("");
+  const [deliveryDescriptionEditor, setDeliveryDescriptionEditor] = useState<string>("");
+  const [deliveryTicketIdToEdit, setDeliveryTicketIdToEdit] = useState<string | null>(null);
+
+  const [leadSourcesLoading, setLeadSourcesLoading] = useState(false);
+  const [leadSources, setLeadSources] = useState<LeadSourceOption[]>([]);
+
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categories, setCategories] = useState<VehicleCategoryOption[]>([]);
+
+  const allModels = useMemo(
+    () => categories.flatMap((c) => c.models ?? []),
+    [categories],
+  );
+
+  const selectedInterestedModel = allModels.find(
+    (m) => m.id === interestedModelIdEditor,
+  );
+  const selectedInterestedVariants = selectedInterestedModel?.variants ?? [];
+
+  const selectedDeliveryModel = allModels.find(
+    (m) => m.id === deliveryModelIdEditor,
+  );
+  const selectedDeliveryVariants = selectedDeliveryModel?.variants ?? [];
+
   const stageOptions = useMemo(
     () =>
       [
@@ -115,6 +167,137 @@ export default function LeadDetailPage() {
       cancelled = true;
     };
   }, [id, router]);
+
+  // Load the intake source data from the linked Contact.
+  // We need this so dealerships can edit source details (vehicle interest, leadScope, etc).
+  useEffect(() => {
+    if (!lead) return;
+    let cancelled = false;
+    setContactActivityLoading(true);
+    setSourceRecordError(null);
+
+    getContactActivity(lead.contactId)
+      .then((data) => {
+        if (cancelled) return;
+        setContactActivity(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setContactActivity(null);
+        setSourceRecordError(
+          err?.response?.data?.error || "Failed to load source details",
+        );
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setContactActivityLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lead?.id, lead?.contactId]);
+
+  // Prefill editor state from the correct intake record using sourceType/sourceId.
+  useEffect(() => {
+    if (!lead || !contactActivity) return;
+    setSourceRecordError(null);
+    setSourceReasonEditor("");
+    setLeadScopeEditor("warm");
+    setLeadSourceIdEditor("");
+    setInterestedModelIdEditor("");
+    setInterestedVariantIdEditor("");
+    setDeliveryTicketIdToEdit(null);
+    setDeliveryModelIdEditor("");
+    setDeliveryVariantIdEditor("");
+    setDeliveryDateEditor("");
+    setDeliveryStatusEditor("");
+    setDeliveryDescriptionEditor("");
+
+    const latestDelivery = contactActivity.deliveryTickets?.[0];
+    if (latestDelivery) {
+      setDeliveryTicketIdToEdit(latestDelivery.id);
+      setDeliveryModelIdEditor(latestDelivery.modelId ?? "");
+      setDeliveryVariantIdEditor(latestDelivery.variantId ?? "");
+      setDeliveryDateEditor(toDatetimeLocal(latestDelivery.deliveryDate ?? null) ?? "");
+      setDeliveryStatusEditor(latestDelivery.status ?? "");
+      setDeliveryDescriptionEditor(latestDelivery.description ?? "");
+    }
+
+    if (lead.sourceType === "digital_enquiry") {
+      const rec = contactActivity.digitalEnquiries.find((e) => e.id === lead.sourceId);
+      if (!rec) {
+        setSourceRecordError("Digital enquiry record not found for this lead.");
+        return;
+      }
+      setLeadScopeEditor((rec.leadScope as LeadScopePriority) || "warm");
+      setLeadSourceIdEditor(rec.leadSourceId ?? "");
+      setInterestedModelIdEditor(rec.interestedModelId ?? "");
+      setInterestedVariantIdEditor(rec.interestedVariantId ?? "");
+      setSourceReasonEditor(rec.reason ?? "");
+      return;
+    }
+
+    if (lead.sourceType === "field_inquiry") {
+      const rec = contactActivity.fieldInquiries.find((e) => e.id === lead.sourceId);
+      if (!rec) {
+        setSourceRecordError("Field inquiry record not found for this lead.");
+        return;
+      }
+      setLeadScopeEditor((rec.leadScope as LeadScopePriority) || "warm");
+      setLeadSourceIdEditor(rec.leadSourceId ?? "");
+      setInterestedModelIdEditor(rec.interestedModelId ?? "");
+      setInterestedVariantIdEditor(rec.interestedVariantId ?? "");
+      setSourceReasonEditor(rec.reason ?? "");
+      return;
+    }
+
+    // For import leads we typically don't have a separate intake module record.
+    setSourceReasonEditor("");
+  }, [lead?.id, lead?.sourceType, lead?.sourceId, contactActivity]);
+
+  // Dropdown options for lead source + model/variant pickers.
+  useEffect(() => {
+    if (!lead) return;
+    let cancelled = false;
+
+    const run = async () => {
+      setLeadSourcesLoading(true);
+      setCategoriesLoading(true);
+      try {
+        const [leadSourcesRes, categoriesRes] = await Promise.all([
+          apiClient.get("/lead-sources"),
+          apiClient.get("/categories"),
+        ]);
+
+        if (cancelled) return;
+
+        const parsedLeadSources: LeadSourceOption[] =
+          leadSourcesRes.data?.leadSources ??
+          (Array.isArray(leadSourcesRes.data) ? leadSourcesRes.data : []);
+
+        const parsedCategories: VehicleCategoryOption[] =
+          categoriesRes.data?.categories ??
+          (Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
+
+        setLeadSources(parsedLeadSources);
+        setCategories(parsedCategories);
+      } catch {
+        if (cancelled) return;
+        setLeadSources([]);
+        setCategories([]);
+      } finally {
+        if (cancelled) return;
+        setLeadSourcesLoading(false);
+        setCategoriesLoading(false);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [lead?.id]);
 
   useEffect(() => {
     if (!lead) return;
@@ -175,6 +358,84 @@ export default function LeadDetailPage() {
       toast.error(err?.response?.data?.error || "Failed to update lead");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const refreshContactActivity = async () => {
+    if (!lead) return;
+    setContactActivityLoading(true);
+    try {
+      const data = await getContactActivity(lead.contactId);
+      setContactActivity(data);
+      setSourceRecordError(null);
+    } finally {
+      setContactActivityLoading(false);
+    }
+  };
+
+  const onSaveSourceDetails = async () => {
+    if (!lead) return;
+    setSourceSaving(true);
+    try {
+      if (lead.sourceType === "digital_enquiry") {
+        await apiClient.patch(`/digital-enquiry/${lead.sourceId}/details`, {
+          leadScope: leadScopeEditor,
+          leadSourceId: leadSourceIdEditor.trim() ? leadSourceIdEditor : null,
+          interestedModelId: interestedModelIdEditor.trim()
+            ? interestedModelIdEditor
+            : null,
+          interestedVariantId: interestedVariantIdEditor.trim()
+            ? interestedVariantIdEditor
+            : null,
+          reason: sourceReasonEditor,
+        });
+      } else if (lead.sourceType === "field_inquiry") {
+        await apiClient.patch(`/field-inquiry/${lead.sourceId}/details`, {
+          leadScope: leadScopeEditor,
+          leadSourceId: leadSourceIdEditor.trim() ? leadSourceIdEditor : null,
+          interestedModelId: interestedModelIdEditor.trim()
+            ? interestedModelIdEditor
+            : null,
+          interestedVariantId: interestedVariantIdEditor.trim()
+            ? interestedVariantIdEditor
+            : null,
+          reason: sourceReasonEditor,
+        });
+      } else if (lead.sourceType === "import" && deliveryTicketIdToEdit) {
+        if (!deliveryModelIdEditor.trim()) {
+          toast.error("Delivery model is required");
+          return;
+        }
+
+        const payload: any = {
+          modelId: deliveryModelIdEditor.trim(),
+          variantId: deliveryVariantIdEditor.trim() ? deliveryVariantIdEditor : null,
+          status: deliveryStatusEditor,
+          description: deliveryDescriptionEditor.trim()
+            ? deliveryDescriptionEditor
+            : null,
+        };
+
+        const deliveryDateIso = fromDatetimeLocal(deliveryDateEditor);
+        if (deliveryDateIso) {
+          payload.deliveryDate = deliveryDateIso;
+        }
+
+        await apiClient.patch(
+          `/delivery-tickets/${deliveryTicketIdToEdit}/details`,
+          payload,
+        );
+      } else {
+        toast.error("This lead source type cannot be edited here");
+        return;
+      }
+
+      await refreshContactActivity();
+      toast.success("Source details updated");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to update source details");
+    } finally {
+      setSourceSaving(false);
     }
   };
 
@@ -313,6 +574,236 @@ export default function LeadDetailPage() {
                 Source: <span className="text-foreground">{lead.sourceType}</span>{" "}
                 • Source ID: <span className="text-foreground">{lead.sourceId}</span>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <div className="text-sm font-semibold">Source details</div>
+              <div className="text-sm text-muted-foreground">
+                Edit vehicle interest and showroom/source info (where available) based on this lead’s intake source.
+              </div>
+
+              {contactActivityLoading ? (
+                <div className="text-sm text-muted-foreground">Loading source details…</div>
+              ) : sourceRecordError ? (
+                <div className="text-sm text-destructive">{sourceRecordError}</div>
+              ) : lead.sourceType === "digital_enquiry" || lead.sourceType === "field_inquiry" ? (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Lead scope (priority)
+                      </div>
+                      <Select
+                        value={leadScopeEditor}
+                        onValueChange={(v) => setLeadScopeEditor(v as LeadScopePriority)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select lead scope" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hot">Hot</SelectItem>
+                          <SelectItem value="warm">Warm</SelectItem>
+                          <SelectItem value="cold">Cold</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Lead source (ID)
+                      </div>
+                      <Select
+                        value={leadSourceIdEditor}
+                        onValueChange={(v) => setLeadSourceIdEditor(v)}
+                        disabled={leadSourcesLoading || leadSources.length === 0}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select lead source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {leadSources.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Interested model (ID)
+                      </div>
+                      <Select
+                        value={interestedModelIdEditor}
+                        onValueChange={(v) => {
+                          setInterestedModelIdEditor(v);
+                          setInterestedVariantIdEditor("");
+                        }}
+                        disabled={categoriesLoading || allModels.length === 0}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select model" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allModels.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Interested variant (ID)
+                      </div>
+                      <Select
+                        value={interestedVariantIdEditor}
+                        onValueChange={(v) => setInterestedVariantIdEditor(v)}
+                        disabled={categoriesLoading || selectedInterestedVariants.length === 0}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select variant" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedInterestedVariants.map((v) => (
+                            <SelectItem key={v.id} value={v.id}>
+                              {v.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Reason / notes from source
+                    </div>
+                    <Textarea
+                      value={sourceReasonEditor}
+                      onChange={(e) => setSourceReasonEditor(e.target.value)}
+                      placeholder="Reason from the digital/field enquiry"
+                      rows={3}
+                    />
+                  </div>
+                </>
+              ) : lead.sourceType === "import" && deliveryTicketIdToEdit ? (
+                <>
+                  <div className="text-sm text-muted-foreground">
+                    Editing the latest Delivery Update for this contact (ticket ID:{" "}
+                    <span className="text-foreground">{deliveryTicketIdToEdit}</span>).
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2 pt-2">
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Model (ID)
+                      </div>
+                      <Select
+                        value={deliveryModelIdEditor}
+                        onValueChange={(v) => {
+                          setDeliveryModelIdEditor(v);
+                          setDeliveryVariantIdEditor("");
+                        }}
+                        disabled={categoriesLoading || allModels.length === 0}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select model" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allModels.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Variant (ID)
+                      </div>
+                      <Select
+                        value={deliveryVariantIdEditor}
+                        onValueChange={(v) => setDeliveryVariantIdEditor(v)}
+                        disabled={categoriesLoading || selectedDeliveryVariants.length === 0}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select variant" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selectedDeliveryVariants.map((v) => (
+                            <SelectItem key={v.id} value={v.id}>
+                              {v.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Delivery date
+                      </div>
+                      <Input
+                        type="datetime-local"
+                        value={deliveryDateEditor}
+                        onChange={(e) => setDeliveryDateEditor(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        Delivery status
+                      </div>
+                      <Input
+                        value={deliveryStatusEditor}
+                        onChange={(e) => setDeliveryStatusEditor(e.target.value)}
+                        placeholder="status"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-2">
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Description
+                    </div>
+                    <Textarea
+                      value={deliveryDescriptionEditor}
+                      onChange={(e) => setDeliveryDescriptionEditor(e.target.value)}
+                      placeholder="Delivery ticket description"
+                      rows={3}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  Intake source editing is not available for this lead source type.
+                </div>
+              )}
+
+              {(lead.sourceType === "digital_enquiry" ||
+                lead.sourceType === "field_inquiry" ||
+                (lead.sourceType === "import" && deliveryTicketIdToEdit)) && (
+                <div className="flex justify-end pt-2">
+                  <Button
+                    onClick={onSaveSourceDetails}
+                    disabled={sourceSaving || contactActivityLoading}
+                  >
+                    {sourceSaving ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Saving…
+                      </span>
+                    ) : (
+                      "Save Source Details"
+                    )}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

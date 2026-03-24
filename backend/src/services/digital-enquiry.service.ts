@@ -2,6 +2,7 @@ import { DigitalEnquiryRepository } from "../repositories/digital-enquiry.reposi
 import { ContactRepository } from "../repositories/contact.repository";
 import { CrmLeadRepository } from "../repositories/crm-lead.repository";
 import { CreateDigitalEnquiryDto } from "../dto/request/create-digital-enquiry.dto";
+import { UpdateDigitalEnquiryDetailsDto } from "../dto/request/update-digital-enquiry-details.dto";
 import { UpdateLeadScopeDto } from "../dto/request/update-lead-scope.dto";
 import {
   BulkUploadProcessingResult,
@@ -11,6 +12,7 @@ import {
   DigitalEnquiryWithRelations,
   CreateDigitalEnquiryResponse,
   UpdateLeadScopeResponse,
+  UpdateDigitalEnquiryDetailsResponse,
 } from "../dto/response/digital-enquiry.response";
 import { whatsappClient } from "../lib/whatsapp";
 import { formatPhoneNumber } from "../utils/phone-formatter";
@@ -183,6 +185,150 @@ export class DigitalEnquiryService {
       leadScope: data.leadScope,
     });
 
+    return {
+      success: true,
+      enquiry: resolveDisplay(updatedEnquiry),
+    };
+  }
+
+  /**
+   * Update full digital enquiry intake details (leadScope, source, model/variant, reason).
+   * PATCH /api/digital-enquiry/:id/details
+   */
+  async updateDetails(
+    id: string,
+    data: UpdateDigitalEnquiryDetailsDto,
+    dealershipId: string,
+  ): Promise<UpdateDigitalEnquiryDetailsResponse> {
+    // Verify enquiry exists and belongs to dealership
+    const enquiry = await this.repository.findByIdAndDealership(id, dealershipId);
+    if (!enquiry) {
+      throw new Error("Enquiry not found");
+    }
+
+    const finalLeadScope =
+      data.leadScope !== undefined ? data.leadScope : undefined;
+    if (finalLeadScope !== undefined) {
+      if (!Object.values(LEAD_SCOPE).includes(finalLeadScope as any)) {
+        throw new Error(
+          "Invalid leadScope. Must be 'hot', 'warm', or 'cold'",
+        );
+      }
+    }
+
+    const finalLeadSourceId =
+      data.leadSourceId !== undefined ? data.leadSourceId : enquiry.leadSourceId;
+    if (data.leadSourceId !== undefined) {
+      if (finalLeadSourceId === null) {
+        // allowed (clear)
+      } else {
+        const leadSource = await prisma.leadSource.findFirst({
+          where: { id: finalLeadSourceId ?? undefined, dealershipId },
+        });
+        if (!leadSource) {
+          throw new Error("Invalid leadSourceId for this dealership");
+        }
+      }
+    }
+
+    const finalModelId =
+      data.interestedModelId !== undefined ? data.interestedModelId : enquiry.interestedModelId;
+    if (data.interestedModelId !== undefined) {
+      if (finalModelId === null) {
+        // allowed (clear)
+      } else {
+        const model = await prisma.vehicleModel.findFirst({
+          where: {
+            id: finalModelId ?? undefined,
+            category: { dealershipId },
+          },
+          select: { id: true },
+        });
+        if (!model) {
+          throw new Error("Invalid interestedModelId for this dealership");
+        }
+      }
+    }
+
+    const finalVariantId =
+      data.interestedVariantId !== undefined
+        ? data.interestedVariantId
+        : enquiry.interestedVariantId;
+
+    // Keep model/variant consistent: if the model is cleared, the variant must also be cleared.
+    if (finalModelId === null && finalVariantId !== null) {
+      throw new Error(
+        "Interested variant must be cleared when interested model is cleared",
+      );
+    }
+
+    if (finalModelId !== null && finalModelId !== undefined) {
+      const model = await prisma.vehicleModel.findFirst({
+        where: {
+          id: finalModelId,
+          category: { dealershipId },
+        },
+        select: { id: true },
+      });
+      if (!model) {
+        throw new Error("Invalid interestedModelId for this dealership");
+      }
+    }
+
+    if (finalVariantId !== null && finalVariantId !== undefined) {
+      const variant = await prisma.vehicleVariant.findFirst({
+        where: { id: finalVariantId, modelId: finalModelId ?? undefined },
+        select: { id: true },
+      });
+      if (!variant) {
+        throw new Error("Invalid interestedVariantId for the selected model");
+      }
+    }
+
+    if (data.interestedVariantId !== undefined) {
+      if (finalVariantId === null) {
+        // allowed (clear)
+      } else {
+        const modelIdForVariant = finalModelId ?? enquiry.interestedModelId;
+        if (!modelIdForVariant) {
+          throw new Error("Interested model is required when variant is set");
+        }
+        const variant = await prisma.vehicleVariant.findFirst({
+          where: { id: finalVariantId ?? undefined, modelId: modelIdForVariant },
+          select: { id: true },
+        });
+        if (!variant) {
+          throw new Error("Invalid interestedVariantId for the selected model");
+        }
+      }
+    }
+
+    // If variant is present (after update), ensure it still belongs to final model.
+    if (finalVariantId !== null && finalVariantId !== undefined) {
+      const modelIdForValidation = finalModelId ?? enquiry.interestedModelId;
+      if (modelIdForValidation) {
+        const variant = await prisma.vehicleVariant.findFirst({
+          where: { id: finalVariantId, modelId: modelIdForValidation },
+          select: { id: true },
+        });
+        if (!variant) {
+          throw new Error("Invalid interestedVariantId for the selected model");
+        }
+      }
+    }
+
+    const updateData: Record<string, any> = {};
+    if (data.leadScope !== undefined) updateData.leadScope = data.leadScope;
+    if (data.leadSourceId !== undefined) updateData.leadSourceId = data.leadSourceId;
+    if (data.interestedModelId !== undefined)
+      updateData.interestedModelId = data.interestedModelId;
+    if (data.interestedVariantId !== undefined)
+      updateData.interestedVariantId = data.interestedVariantId;
+    if (data.reason !== undefined) updateData.reason = data.reason;
+    if (data.modelText !== undefined) updateData.modelText = data.modelText;
+    if (data.sourceText !== undefined) updateData.sourceText = data.sourceText;
+
+    const updatedEnquiry = await this.repository.update(id, updateData);
     return {
       success: true,
       enquiry: resolveDisplay(updatedEnquiry),

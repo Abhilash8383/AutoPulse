@@ -2,6 +2,7 @@ import { FieldInquiryRepository } from "../repositories/field-inquiry.repository
 import { ContactRepository } from "../repositories/contact.repository";
 import { CrmLeadRepository } from "../repositories/crm-lead.repository";
 import { CreateFieldInquiryDto } from "../dto/request/create-field-inquiry.dto";
+import { UpdateFieldInquiryDetailsDto } from "../dto/request/update-field-inquiry-details.dto";
 import { UpdateLeadScopeDto } from "../dto/request/update-lead-scope.dto";
 import {
   BulkUploadProcessingResult,
@@ -11,6 +12,7 @@ import {
   FieldInquiryWithRelations,
   CreateFieldInquiryResponse,
   UpdateLeadScopeResponse,
+  UpdateFieldInquiryDetailsResponse,
 } from "../dto/response/field-inquiry.response";
 import { whatsappClient } from "../lib/whatsapp";
 import { validateRequiredColumns, parseExcelDate } from "../utils/excel-parser";
@@ -180,6 +182,147 @@ export class FieldInquiryService {
       leadScope: data.leadScope,
     });
 
+    return {
+      success: true,
+      enquiry: resolveDisplay(updatedEnquiry),
+    };
+  }
+
+  /**
+   * Update full field inquiry intake details
+   * PATCH /api/field-inquiry/:id/details
+   */
+  async updateDetails(
+    id: string,
+    data: UpdateFieldInquiryDetailsDto,
+    dealershipId: string
+  ): Promise<UpdateFieldInquiryDetailsResponse> {
+    const enquiry = await this.repository.findByIdAndDealership(id, dealershipId);
+    if (!enquiry) {
+      throw new Error("Inquiry not found");
+    }
+
+    const finalLeadScope =
+      data.leadScope !== undefined ? data.leadScope : undefined;
+    if (finalLeadScope !== undefined) {
+      if (!Object.values(LEAD_SCOPE).includes(finalLeadScope as any)) {
+        throw new Error(
+          "Invalid leadScope. Must be 'hot', 'warm', or 'cold'",
+        );
+      }
+    }
+
+    const finalLeadSourceId =
+      data.leadSourceId !== undefined ? data.leadSourceId : enquiry.leadSourceId;
+    if (data.leadSourceId !== undefined) {
+      if (finalLeadSourceId !== null) {
+        const leadSource = await prisma.leadSource.findFirst({
+          where: { id: finalLeadSourceId ?? undefined, dealershipId },
+          select: { id: true },
+        });
+        if (!leadSource) {
+          throw new Error("Invalid leadSourceId for this dealership");
+        }
+      }
+    }
+
+    const finalModelId =
+      data.interestedModelId !== undefined
+        ? data.interestedModelId
+        : enquiry.interestedModelId;
+    if (data.interestedModelId !== undefined) {
+      if (finalModelId !== null) {
+        const model = await prisma.vehicleModel.findFirst({
+          where: {
+            id: finalModelId ?? undefined,
+            category: { dealershipId },
+          },
+          select: { id: true },
+        });
+        if (!model) {
+          throw new Error("Invalid interestedModelId for this dealership");
+        }
+      }
+    }
+
+    const finalVariantId =
+      data.interestedVariantId !== undefined
+        ? data.interestedVariantId
+        : enquiry.interestedVariantId;
+
+    // Keep model/variant consistent: if the model is cleared, variant must also be cleared.
+    if (finalModelId === null && finalVariantId !== null) {
+      throw new Error(
+        "Interested variant must be cleared when interested model is cleared",
+      );
+    }
+
+    if (finalModelId !== null && finalModelId !== undefined) {
+      const model = await prisma.vehicleModel.findFirst({
+        where: {
+          id: finalModelId,
+          category: { dealershipId },
+        },
+        select: { id: true },
+      });
+      if (!model) {
+        throw new Error("Invalid interestedModelId for this dealership");
+      }
+    }
+
+    if (finalVariantId !== null && finalVariantId !== undefined) {
+      const variant = await prisma.vehicleVariant.findFirst({
+        where: { id: finalVariantId, modelId: finalModelId ?? undefined },
+        select: { id: true },
+      });
+      if (!variant) {
+        throw new Error("Invalid interestedVariantId for the selected model");
+      }
+    }
+
+    if (data.interestedVariantId !== undefined) {
+      if (finalVariantId !== null) {
+        const modelIdForVariant = finalModelId ?? enquiry.interestedModelId;
+        if (!modelIdForVariant) {
+          throw new Error("Interested model is required when variant is set");
+        }
+        const variant = await prisma.vehicleVariant.findFirst({
+          where: { id: finalVariantId ?? undefined, modelId: modelIdForVariant },
+          select: { id: true },
+        });
+        if (!variant) {
+          throw new Error(
+            "Invalid interestedVariantId for the selected model",
+          );
+        }
+      }
+    }
+
+    if (finalVariantId !== null && finalVariantId !== undefined) {
+      const modelIdForValidation = finalModelId ?? enquiry.interestedModelId;
+      if (modelIdForValidation) {
+        const variant = await prisma.vehicleVariant.findFirst({
+          where: {
+            id: finalVariantId,
+            modelId: modelIdForValidation,
+          },
+          select: { id: true },
+        });
+        if (!variant) {
+          throw new Error("Invalid interestedVariantId for the selected model");
+        }
+      }
+    }
+
+    const updateData: Record<string, any> = {};
+    if (data.leadScope !== undefined) updateData.leadScope = data.leadScope;
+    if (data.leadSourceId !== undefined) updateData.leadSourceId = data.leadSourceId;
+    if (data.interestedModelId !== undefined) updateData.interestedModelId = data.interestedModelId;
+    if (data.interestedVariantId !== undefined)
+      updateData.interestedVariantId = data.interestedVariantId;
+    if (data.reason !== undefined) updateData.reason = data.reason;
+
+    const updatedEnquiry = await this.repository.update(id, updateData);
     return {
       success: true,
       enquiry: resolveDisplay(updatedEnquiry),

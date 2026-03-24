@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { FieldInquiryService } from "../services/field-inquiry.service";
 import { CreateFieldInquiryDto } from "../dto/request/create-field-inquiry.dto";
+import { UpdateFieldInquiryDetailsDto } from "../dto/request/update-field-inquiry-details.dto";
 import { UpdateLeadScopeDto } from "../dto/request/update-lead-scope.dto";
 import { PAGINATION } from "../config/constants";
 
@@ -95,6 +96,42 @@ export class FieldInquiryController {
       if (errorMessage === "Inquiry not found") {
         res.status(404).json({ error: errorMessage });
       } else if (errorMessage.includes("Invalid leadScope")) {
+        res.status(400).json({ error: errorMessage });
+      } else {
+        res.status(500).json({ error: errorMessage });
+      }
+    }
+  };
+
+  /**
+   * Update full field inquiry intake details
+   * PATCH /api/field-inquiry/:id/details
+   */
+  updateDetails = async (req: Request, res: Response): Promise<void> => {
+    if (!req.user || !req.user.dealershipId) {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    const { id } = req.params;
+    const data: UpdateFieldInquiryDetailsDto = req.body;
+
+    try {
+      const result = await this.service.updateDetails(
+        id,
+        data,
+        req.user.dealershipId,
+      );
+      res.json(result);
+    } catch (error) {
+      const errorMessage = (error as Error).message;
+      if (errorMessage === "Inquiry not found") {
+        res.status(404).json({ error: errorMessage });
+      } else if (
+        errorMessage.includes("Invalid") ||
+        errorMessage.includes("Interested") ||
+        errorMessage.includes("must be")
+      ) {
         res.status(400).json({ error: errorMessage });
       } else {
         res.status(500).json({ error: errorMessage });
