@@ -26,10 +26,11 @@ import {
 } from "lucide-react";
 import Pagination from "./components/Pagination";
 import {
-  getContacts,
+  getContactActivities,
   getContactActivity,
   updateContact,
   type Contact,
+  type ContactActivityRow,
   type ContactActivityResponse,
 } from "@/services/api/contact.service";
 import {
@@ -68,7 +69,7 @@ export default function ContactsPage() {
   const [sortKey, setSortKey] = useState<string | null>("name");
   const [sortAsc, setSortAsc] = useState(true);
 
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [activities, setActivities] = useState<ContactActivityRow[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const [initialLoading, setInitialLoading] = useState(true);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,22 +105,24 @@ export default function ContactsPage() {
   useEffect(() => {
     let cancelled = false;
     setPageLoading(true);
-    if (currentPage === 1 && contacts.length === 0) setInitialLoading(true);
+    if (currentPage === 1 && activities.length === 0) setInitialLoading(true);
 
-    getContacts({
+    getContactActivities({
       limit: rowsPerPage,
       skip: (currentPage - 1) * rowsPerPage,
       search: searchQuery.trim() || undefined,
     })
       .then((res) => {
         if (cancelled) return;
-        setContacts(res.contacts);
+        setActivities(res.activities);
         setTotalResults(res.total);
       })
       .catch((err) => {
         if (cancelled) return;
-        toast.error(err.response?.data?.error || "Failed to load contacts");
-        setContacts([]);
+        toast.error(
+          err.response?.data?.error || "Failed to load contact activity",
+        );
+        setActivities([]);
         setTotalResults(0);
       })
       .finally(() => {
@@ -194,7 +197,11 @@ export default function ContactsPage() {
         email: email ? email : null,
         address: address ? address : null,
       });
-      setContacts((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+      setActivities((prev) =>
+        prev.map((row) =>
+          row.contact?.id === updated.id ? { ...row, contact: updated } : row,
+        ),
+      );
       setActiveContact(updated);
       toast.success("Contact updated");
       setEditOpen(false);
@@ -286,7 +293,7 @@ export default function ContactsPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-muted text-muted-foreground">
+        <TabsList className="bg-muted text-muted-foreground w-full overflow-x-auto">
           <TabsTrigger value="all">All contacts</TabsTrigger>
           <TabsTrigger value="list">Contact List</TabsTrigger>
         </TabsList>
@@ -357,53 +364,80 @@ export default function ContactsPage() {
                         >
                           <span className="inline-flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Loading contacts…
+                            Loading activity…
                           </span>
                         </td>
                       </tr>
-                    ) : contacts.length === 0 ? (
+                    ) : activities.length === 0 ? (
                       <tr>
                         <td
                           colSpan={7}
                           className="py-12 text-center text-muted-foreground text-sm"
                         >
-                          No contacts found.
+                          No activity found.
                         </td>
                       </tr>
                     ) : (
-                      contacts.map((contact) => (
+                      activities.map((activity) => (
                         <tr
-                          key={contact.id}
+                          key={activity.id}
                           className="border-b hover:bg-muted/30 transition-colors"
                         >
                           <td className="py-3 px-4">
                             <input
                               type="checkbox"
                               className="rounded border-input"
-                              aria-label={`Select ${contact.firstName} ${contact.lastName}`}
+                                aria-label={`Select ${
+                                  activity.contact?.firstName ??
+                                  activity.fallback.firstName ??
+                                  ""
+                                } ${
+                                  activity.contact?.lastName ??
+                                  activity.fallback.lastName ??
+                                  ""
+                                }`}
                             />
                           </td>
                           <td className="py-3 px-4 text-sm">
-                            {contact.firstName} {contact.lastName}
+                            {(activity.contact?.firstName ??
+                              activity.fallback.firstName ??
+                              "—") +
+                              " " +
+                              (activity.contact?.lastName ??
+                                activity.fallback.lastName ??
+                                "").trim()}
                           </td>
                           <td className="py-3 px-4 text-sm">
-                            {contact.email ?? "—"}
+                            {activity.contact?.email ?? activity.fallback.email ?? "—"}
                           </td>
                           <td className="py-3 px-4 text-sm">
-                            {contact.whatsappNumber}
+                            {activity.contact?.whatsappNumber ??
+                              activity.fallback.whatsappNumber ??
+                              "—"}
                           </td>
-                          <td className="py-3 px-4 text-sm max-w-[200px] truncate" title={contact.address ?? ""}>
-                            {contact.address ?? "—"}
+                          <td
+                            className="py-3 px-4 text-sm max-w-[200px] truncate"
+                            title={
+                              activity.contact?.address ??
+                              activity.fallback.address ??
+                              ""
+                            }
+                          >
+                            {activity.contact?.address ?? activity.fallback.address ?? "—"}
                           </td>
                           <td className="py-3 px-4 text-sm text-muted-foreground whitespace-nowrap">
-                            {formatDate(contact.createdAt)}
+                            {formatDate(activity.createdAt)}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => openView(contact)}
+                                disabled={!activity.contact}
+                                onClick={() => {
+                                  if (!activity.contact) return;
+                                  openView(activity.contact);
+                                }}
                               >
                                 <Eye className="mr-2 h-4 w-4" />
                                 View
@@ -411,7 +445,11 @@ export default function ContactsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => openEdit(contact)}
+                                disabled={!activity.contact}
+                                onClick={() => {
+                                  if (!activity.contact) return;
+                                  openEdit(activity.contact);
+                                }}
                               >
                                 <Pencil className="mr-2 h-4 w-4" />
                                 Edit
@@ -419,11 +457,19 @@ export default function ContactsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => convertToLead(contact)}
-                                disabled={convertSavingId === contact.id}
+                                onClick={() => {
+                                  if (!activity.contact) return;
+                                  convertToLead(activity.contact);
+                                }}
+                                disabled={
+                                  !activity.contact || convertSavingId === activity.contact.id
+                                }
                               >
                                 <Wand2 className="mr-2 h-4 w-4" />
-                                {convertSavingId === contact.id ? "Converting…" : "Convert"}
+                                {activity.contact &&
+                                convertSavingId === activity.contact.id
+                                  ? "Converting…"
+                                  : "Convert"}
                               </Button>
                             </div>
                           </td>
@@ -444,7 +490,7 @@ export default function ContactsPage() {
               </DialogHeader>
               {activeContact ? (
                 <Tabs value={viewTab} onValueChange={setViewTab}>
-                  <TabsList className="grid grid-cols-5 w-full">
+                  <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full gap-1">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="walkins">Walkins</TabsTrigger>
                     <TabsTrigger value="digital">Digital</TabsTrigger>

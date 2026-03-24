@@ -19,6 +19,15 @@ router.post(
   checkPermission(PERMISSIONS.DAILY_WALKINS_VISITORS),
   asyncHandler(controller.create),
 );
+// Unified activity feed across Walkins/Digital/Field/Delivery.
+// IMPORTANT: must be defined BEFORE "/:id" so Express doesn't treat "activity"
+// as the ":id" param.
+router.get(
+  "/activity",
+  authenticate,
+  checkPermission(PERMISSIONS.DAILY_WALKINS_VISITORS),
+  asyncHandler(controller.activityFeed),
+);
 router.get(
   "/:id",
   authenticate,
