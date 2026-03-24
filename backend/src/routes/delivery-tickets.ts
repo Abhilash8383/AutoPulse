@@ -247,6 +247,107 @@ router.get(
   })
 );
 
+// Update delivery ticket details
+router.patch(
+  "/:id/details",
+  authenticate,
+  checkPermission(PERMISSIONS.DELIVERY_UPDATE),
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user || !req.user.dealershipId) {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    const { id: ticketId } = req.params;
+    const {
+      modelId,
+      variantId,
+      deliveryDate,
+      status,
+      description,
+    } = req.body as {
+      modelId?: string;
+      variantId?: string | null;
+      deliveryDate?: string;
+      status?: string;
+      description?: string | null;
+    };
+
+    const ticket = await prisma.deliveryTicket.findFirst({
+      where: { id: ticketId, dealershipId: req.user.dealershipId },
+    });
+
+    if (!ticket) {
+      res.status(404).json({ error: "Ticket not found" });
+      return;
+    }
+
+    const effectiveModelId = modelId ?? ticket.modelId;
+
+    if (modelId !== undefined) {
+      const model = await prisma.vehicleModel.findFirst({
+        where: {
+          id: modelId,
+          category: { dealershipId: req.user.dealershipId },
+        },
+        select: { id: true },
+      });
+
+      if (!model) {
+        res.status(400).json({ error: "Invalid modelId for this dealership" });
+        return;
+      }
+    }
+
+    if (variantId !== undefined) {
+      if (variantId !== null) {
+        const variant = await prisma.vehicleVariant.findFirst({
+          where: { id: variantId, modelId: effectiveModelId },
+          select: { id: true },
+        });
+        if (!variant) {
+          res
+            .status(400)
+            .json({ error: "Invalid variantId for the selected model" });
+          return;
+        }
+      }
+    }
+
+    const updateData: any = {};
+    if (modelId !== undefined) updateData.modelId = modelId;
+    if (variantId !== undefined) updateData.variantId = variantId;
+    if (deliveryDate !== undefined) {
+      const deliveryDateObj = new Date(deliveryDate);
+      if (isNaN(deliveryDateObj.getTime())) {
+        res.status(400).json({ error: "Invalid deliveryDate" });
+        return;
+      }
+      updateData.deliveryDate = deliveryDateObj;
+    }
+    if (status !== undefined) updateData.status = status;
+    if (description !== undefined) updateData.description = description;
+
+    const updatedTicket = await prisma.deliveryTicket.update({
+      where: { id: ticketId },
+      data: updateData,
+      include: {
+        model: { include: { category: true } },
+        variant: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      ticket: {
+        id: updatedTicket.id,
+        firstName: updatedTicket.firstName,
+        lastName: updatedTicket.lastName,
+      },
+    });
+  })
+);
+
 // Send now
 router.post(
   "/:id/send-now",

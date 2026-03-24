@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { DigitalEnquiryService } from "../services/digital-enquiry.service";
 import { CreateDigitalEnquiryDto } from "../dto/request/create-digital-enquiry.dto";
+import { UpdateDigitalEnquiryDetailsDto } from "../dto/request/update-digital-enquiry-details.dto";
 import { UpdateLeadScopeDto } from "../dto/request/update-lead-scope.dto";
 import { PAGINATION } from "../config/constants";
 
@@ -109,6 +110,43 @@ export class DigitalEnquiryController {
       if (errorMessage === "Enquiry not found") {
         res.status(404).json({ error: errorMessage });
       } else if (errorMessage.includes("Invalid leadScope")) {
+        res.status(400).json({ error: errorMessage });
+      } else {
+        res.status(500).json({ error: errorMessage });
+      }
+    }
+  };
+
+  /**
+   * Update full digital enquiry intake details
+   * PATCH /api/digital-enquiry/:id/details
+   */
+  updateDetails = async (req: Request, res: Response): Promise<void> => {
+    if (!req.user || !req.user.dealershipId) {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    const { id } = req.params;
+    const data: UpdateDigitalEnquiryDetailsDto = req.body;
+
+    try {
+      const result = await this.service.updateDetails(
+        id,
+        data,
+        req.user.dealershipId,
+      );
+      res.json(result);
+    } catch (error) {
+      const errorMessage = (error as Error).message;
+      if (errorMessage === "Enquiry not found") {
+        res.status(404).json({ error: errorMessage });
+      } else if (
+        errorMessage.includes("Invalid") ||
+        errorMessage.includes("Invalid leadScope") ||
+        errorMessage.includes("Interested") ||
+        errorMessage.includes("must be")
+      ) {
         res.status(400).json({ error: errorMessage });
       } else {
         res.status(500).json({ error: errorMessage });

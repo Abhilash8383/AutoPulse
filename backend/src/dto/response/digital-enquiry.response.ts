@@ -25,3 +25,8 @@ export interface UpdateLeadScopeResponse {
   success: boolean;
   enquiry: DigitalEnquiryWithRelations;
 }
+
+export interface UpdateDigitalEnquiryDetailsResponse {
+  success: boolean;
+  enquiry: DigitalEnquiryWithRelations;
+}

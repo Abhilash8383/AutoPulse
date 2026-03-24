@@ -16,6 +16,14 @@ router.get("/", authenticate, checkPermission(PERMISSIONS.DIGITAL_ENQUIRY), asyn
 // Update lead scope
 router.patch("/:id", authenticate, checkPermission(PERMISSIONS.DIGITAL_ENQUIRY), asyncHandler(controller.updateLeadScope));
 
+// Update digital enquiry intake details
+router.patch(
+  "/:id/details",
+  authenticate,
+  checkPermission(PERMISSIONS.DIGITAL_ENQUIRY),
+  asyncHandler(controller.updateDetails),
+);
+
 // Bulk upload
 router.post("/bulk", authenticate, checkPermission(PERMISSIONS.DIGITAL_ENQUIRY), asyncHandler(controller.bulkUpload));
 

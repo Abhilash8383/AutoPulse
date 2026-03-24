@@ -25,3 +25,8 @@ export interface UpdateLeadScopeResponse {
   success: boolean;
   enquiry: FieldInquiryWithRelations;
 }
+
+export interface UpdateFieldInquiryDetailsResponse {
+  success: boolean;
+  enquiry: FieldInquiryWithRelations;
+}

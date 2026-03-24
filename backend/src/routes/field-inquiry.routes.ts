@@ -14,7 +14,20 @@ router.post("/", authenticate, checkPermission(PERMISSIONS.FIELD_INQUIRY), async
 router.get("/", authenticate, checkPermission(PERMISSIONS.FIELD_INQUIRY), asyncHandler(controller.getAll));
 
 // Update lead scope
-router.patch("/:id", authenticate, checkPermission(PERMISSIONS.FIELD_INQUIRY), asyncHandler(controller.updateLeadScope));
+router.patch(
+  "/:id/details",
+  authenticate,
+  checkPermission(PERMISSIONS.FIELD_INQUIRY),
+  asyncHandler(controller.updateDetails),
+);
+
+// Update lead scope
+router.patch(
+  "/:id",
+  authenticate,
+  checkPermission(PERMISSIONS.FIELD_INQUIRY),
+  asyncHandler(controller.updateLeadScope),
+);
 
 // Bulk upload
 router.post("/bulk", authenticate, checkPermission(PERMISSIONS.FIELD_INQUIRY), asyncHandler(controller.bulkUpload));
