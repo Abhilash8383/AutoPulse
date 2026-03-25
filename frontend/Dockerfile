@@ -6,15 +6,10 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
-# Baked into the client at build time. Dokploy must pass this as a *Docker build arg*
-# (runtime env on the container is too late for Next.js). Example:
-#   NEXT_PUBLIC_API_URL=https://api.example.com/api
-ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+# NEXT_PUBLIC_* for the browser: set in frontend/.env.production (see .dockerignore — this file is copied in).
+# Do not set empty NEXT_PUBLIC_API_URL here; that would override .env.production during `next build`.
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN test -n "$NEXT_PUBLIC_API_URL" \
-  || (echo "NEXT_PUBLIC_API_URL is empty: set it as a Docker build-arg in Dokploy, then redeploy (disable cache)." && exit 1) \
-  && pnpm run build
+RUN pnpm run build
 
 FROM node:20-alpine AS production
 WORKDIR /app
