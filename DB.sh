@@ -1,8 +1,11 @@
 #!/bin/bash
 
 # Variables
-PROD_URL="postgresql://utkalUser:utkalautomobiles@72.62.245.103:5432/utkal"
-LOCAL_URL="postgresql://moto:moto@localhost:5432/moto"
+# PROD_URL="postgresql://autopulse:Rb61R1EJDT4qGSw5FVQu@148.135.138.190:5432/utkal"
+# LOCAL_URL="postgresql://moto:moto@localhost:5432/moto"
+
+LOCAL_URL="postgresql://autopulse:Rb61R1EJDT4qGSw5FVQu@148.135.138.190:5432/utkal"
+PROD_URL="postgresql://moto:moto@localhost:5432/moto"
 
 echo "🔄 Starting Sync: Prod -> Local..."
 
