@@ -6,7 +6,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 // Create axios instance with default config
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true, // Important for cookies
+  withCredentials: true, // Important for cookies 
   headers: {
     "Content-Type": "application/json",
   },
