@@ -424,7 +424,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                       <Button
                         variant={
                           pathname === "/dashboard/crm/leads" ||
-                          pathname?.startsWith("/dashboard/crm/leads/")
+                          pathname === "/dashboard/crm/leads"
                             ? "secondary"
                             : "ghost"
                         }
@@ -439,8 +439,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                         >
                           Leads
                         </span>
-                        {(pathname === "/dashboard/crm/leads" ||
-                          pathname?.startsWith("/dashboard/crm/leads/")) && (
+                        {pathname === "/dashboard/crm/leads" && (
                           <div
                             className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full"
                             style={{ backgroundColor: "#1976B8" }}

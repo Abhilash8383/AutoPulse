@@ -3,18 +3,20 @@ import prisma from "../lib/db";
 import { CrmLeadStatus } from "@prisma/client";
 
 async function getScopedDealershipIds(req: Request): Promise<string[] | null> {
+  const isOrgAdmin = req.user?.role === "super_admin" || req.user?.role === "admin";
+  const organizationId = req.user?.organizationId;
+  if (isOrgAdmin && organizationId) {
+    const dealerships = await prisma.dealership.findMany({
+      where: { organizationId },
+      select: { id: true },
+    });
+    return dealerships.map((d) => d.id);
+  }
+
   const dealershipId = req.user?.dealershipId;
   if (dealershipId) return [dealershipId];
 
-  const isOrgAdmin = req.user?.role === "super_admin" || req.user?.role === "admin";
-  const organizationId = req.user?.organizationId;
-  if (!isOrgAdmin || !organizationId) return null;
-
-  const dealerships = await prisma.dealership.findMany({
-    where: { organizationId },
-    select: { id: true },
-  });
-  return dealerships.map((d) => d.id);
+  return null;
 }
 
 function getPeriodStarts(now: Date) {

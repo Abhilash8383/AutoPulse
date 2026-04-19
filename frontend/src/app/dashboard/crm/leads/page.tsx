@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { toast } from "sonner";
 import { Eye, Loader2, Search, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -480,12 +479,7 @@ export default function LeadsPage() {
                   leads.map((lead) => (
                     <tr key={lead.id} className="border-b hover:bg-muted/30">
                       <td className="py-3 px-4 font-medium">
-                        <Link
-                          href={`/dashboard/crm/leads/${lead.id}`}
-                          className="hover:underline"
-                        >
-                          {formatName(lead)}
-                        </Link>
+                        {formatName(lead)}
                         {lead.contact.email ? (
                           <div className="text-xs text-muted-foreground">
                             {lead.contact.email}
