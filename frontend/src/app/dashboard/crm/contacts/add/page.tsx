@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,8 +24,6 @@ function digitsOnly(value: string) {
 }
 
 export default function AddContactPage() {
-  const router = useRouter();
-
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phoneCode, setPhoneCode] = useState<(typeof PHONE_CODES)[number]>("+91");
@@ -61,7 +58,7 @@ export default function AddContactPage() {
 
     setSaving(true);
     try {
-      const res = await createContact({
+      await createContact({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         whatsappNumber,
@@ -69,7 +66,7 @@ export default function AddContactPage() {
         address: address.trim() ? address.trim() : undefined,
       });
       toast.success("Contact created");
-      router.push(`/dashboard/crm/leads/${res.lead.id}`);
+      window.location.href = "/dashboard/crm/contacts";
     } catch (err: any) {
       toast.error(err?.response?.data?.error || "Failed to create contact");
     } finally {

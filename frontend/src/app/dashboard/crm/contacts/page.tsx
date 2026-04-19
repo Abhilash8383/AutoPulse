@@ -214,9 +214,8 @@ export default function ContactsPage() {
   const convertToLead = async (c: Contact) => {
     setConvertSavingId(c.id);
     try {
-      const res = await createLeadFromContact(c.id);
-      toast.success("Lead created");
-      window.location.href = `/dashboard/crm/leads/${res.lead.id}`;
+      await createLeadFromContact(c.id);
+      toast.success("Contact converted to lead");
     } catch (err: any) {
       toast.error(err?.response?.data?.error || "Failed to create lead");
     } finally {
