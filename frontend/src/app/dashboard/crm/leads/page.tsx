@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Loader2, Search, X } from "lucide-react";
+import { Eye, Loader2, Search, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Pagination from "../contacts/components/Pagination";
 import {
   getCrmLeads,
@@ -23,6 +32,7 @@ import {
   type CrmLeadStatus,
 } from "@/services/api/crm-leads.service";
 import { getDealershipUsers, type DealershipUser } from "@/services/api/users.service";
+import { getContactActivity, type ContactActivityResponse } from "@/services/api/contact.service";
 
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const PAGE_SIZE = 10;
@@ -87,6 +97,16 @@ export default function LeadsPage() {
 
   const [leads, setLeads] = useState<CrmLead[]>([]);
   const [totalResults, setTotalResults] = useState(0);
+  const [ownerConfirmOpen, setOwnerConfirmOpen] = useState(false);
+  const [pendingOwnerChange, setPendingOwnerChange] = useState<{
+    leadId: string;
+    nextOwnerUserId: string | null;
+  } | null>(null);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewTab, setViewTab] = useState("overview");
+  const [activeLead, setActiveLead] = useState<CrmLead | null>(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activity, setActivity] = useState<ContactActivityResponse | null>(null);
 
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const totalPages = Math.max(1, Math.ceil(totalResults / rowsPerPage));
@@ -161,6 +181,30 @@ export default function LeadsPage() {
     };
   }, [currentPage, rowsPerPage, searchQuery, view, stage, status, overdue, owner]);
 
+  useEffect(() => {
+    if (!viewOpen || !activeLead) return;
+    let cancelled = false;
+    setActivityLoading(true);
+    getContactActivity(activeLead.contactId)
+      .then((data) => {
+        if (cancelled) return;
+        setActivity(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        toast.error(err?.response?.data?.error || "Failed to load contact activity");
+        setActivity(null);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setActivityLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [viewOpen, activeLead?.id]);
+
   const onQuickUpdate = async (
     lead: CrmLead,
     patch: { stage?: CrmLeadStage; ownerUserId?: string | null; nextFollowUpAt?: string | null },
@@ -187,6 +231,38 @@ export default function LeadsPage() {
       toast.error(err?.response?.data?.error || "Failed to update lead");
       setLeads((prev) => prev.map((l) => (l.id === lead.id ? lead : l)));
     }
+  };
+
+  const requestOwnerChange = (lead: CrmLead, value: string) => {
+    const nextOwnerUserId = value === "unassigned" ? null : value;
+    if ((lead.ownerUserId ?? null) === nextOwnerUserId) return;
+
+    setPendingOwnerChange({
+      leadId: lead.id,
+      nextOwnerUserId,
+    });
+    setOwnerConfirmOpen(true);
+  };
+
+  const confirmOwnerChange = async () => {
+    if (!pendingOwnerChange) return;
+    const lead = leads.find((l) => l.id === pendingOwnerChange.leadId);
+    if (!lead) {
+      setOwnerConfirmOpen(false);
+      setPendingOwnerChange(null);
+      return;
+    }
+
+    await onQuickUpdate(lead, { ownerUserId: pendingOwnerChange.nextOwnerUserId });
+    setOwnerConfirmOpen(false);
+    setPendingOwnerChange(null);
+  };
+
+  const openView = (lead: CrmLead) => {
+    setActiveLead(lead);
+    setViewTab("overview");
+    setActivity(null);
+    setViewOpen(true);
   };
 
   const stageOptions = useMemo(
@@ -379,12 +455,15 @@ export default function LeadsPage() {
                   <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Updated
                   </th>
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {initialLoading ? (
                   <tr>
-                    <td colSpan={6} className="py-10 text-center">
+                    <td colSpan={8} className="py-10 text-center">
                       <div className="inline-flex items-center gap-2 text-muted-foreground">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Loading leads…
@@ -393,7 +472,7 @@ export default function LeadsPage() {
                   </tr>
                 ) : leads.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-10 text-center text-muted-foreground">
+                    <td colSpan={8} className="py-10 text-center text-muted-foreground">
                       No leads found.
                     </td>
                   </tr>
@@ -437,11 +516,7 @@ export default function LeadsPage() {
                       <td className="py-3 px-4">
                         <Select
                           value={lead.ownerUserId ?? "unassigned"}
-                          onValueChange={(v) =>
-                            onQuickUpdate(lead, {
-                              ownerUserId: v === "unassigned" ? null : v,
-                            })
-                          }
+                          onValueChange={(v) => requestOwnerChange(lead, v)}
                           disabled={usersLoading}
                         >
                           <SelectTrigger className="h-8 w-full sm:w-[220px]">
@@ -477,6 +552,16 @@ export default function LeadsPage() {
                         />
                       </td>
                       <td className="py-3 px-4">{formatDate(lead.updatedAt)}</td>
+                      <td className="py-3 px-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openView(lead)}
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          View
+                        </Button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -494,7 +579,198 @@ export default function LeadsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={viewOpen}
+        onOpenChange={(open) => {
+          setViewOpen(open);
+          if (!open) {
+            setActiveLead(null);
+            setActivity(null);
+            setViewTab("overview");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Lead details</DialogTitle>
+          </DialogHeader>
+          {activeLead ? (
+            <Tabs value={viewTab} onValueChange={setViewTab}>
+              <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full gap-1">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="walkins">Walkins</TabsTrigger>
+                <TabsTrigger value="digital">Digital</TabsTrigger>
+                <TabsTrigger value="field">Field</TabsTrigger>
+                <TabsTrigger value="delivery">Delivery</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="mt-4 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Name
+                    </div>
+                    <div className="text-sm">{formatName(activeLead)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Phone
+                    </div>
+                    <div className="text-sm">{activeLead.contact.whatsappNumber}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Email
+                    </div>
+                    <div className="text-sm">{activeLead.contact.email ?? "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Source
+                    </div>
+                    <div className="text-sm">{sourceLabel(activeLead.sourceType)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Stage
+                    </div>
+                    <div className="text-sm">{stageLabel(activeLead.stage)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Status
+                    </div>
+                    <div className="text-sm">{activeLead.status.toUpperCase()}</div>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Address
+                  </div>
+                  <div className="text-sm">{activeLead.contact.address ?? "—"}</div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="walkins" className="mt-4">
+                {activityLoading ? (
+                  <div className="text-sm text-muted-foreground">Loading…</div>
+                ) : !activity || activity.visitors.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No walkins found.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {activity.visitors.map((v) => (
+                      <div key={v.id} className="rounded-md border p-3">
+                        <div className="text-sm font-medium">Visitor #{v.id}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Created: {new Date(v.createdAt).toLocaleString("en-IN")} • Sessions: {v.sessions?.length ?? 0}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="digital" className="mt-4">
+                {activityLoading ? (
+                  <div className="text-sm text-muted-foreground">Loading…</div>
+                ) : !activity || activity.digitalEnquiries.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No digital enquiries found.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {activity.digitalEnquiries.map((e) => (
+                      <div key={e.id} className="rounded-md border p-3">
+                        <div className="text-sm font-medium">{e.reason}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(e.createdAt).toLocaleString("en-IN")} • Scope: {e.leadScope}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="field" className="mt-4">
+                {activityLoading ? (
+                  <div className="text-sm text-muted-foreground">Loading…</div>
+                ) : !activity || activity.fieldInquiries.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No field inquiries found.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {activity.fieldInquiries.map((f) => (
+                      <div key={f.id} className="rounded-md border p-3">
+                        <div className="text-sm font-medium">{f.reason}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(f.createdAt).toLocaleString("en-IN")} • Scope: {f.leadScope}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="delivery" className="mt-4">
+                {activityLoading ? (
+                  <div className="text-sm text-muted-foreground">Loading…</div>
+                ) : !activity || activity.deliveryTickets.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No delivery tickets found.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {activity.deliveryTickets.map((t) => (
+                      <div key={t.id} className="rounded-md border p-3">
+                        <div className="text-sm font-medium">Ticket #{t.id}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Delivery: {new Date(t.deliveryDate).toLocaleDateString("en-IN")} • Status: {t.status}
+                        </div>
+                        {t.description ? (
+                          <div className="text-sm mt-2 text-muted-foreground">{t.description}</div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={ownerConfirmOpen}
+        onOpenChange={(open) => {
+          setOwnerConfirmOpen(open);
+          if (!open) setPendingOwnerChange(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change lead owner?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to change the owner of this lead?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setOwnerConfirmOpen(false);
+                setPendingOwnerChange(null);
+              }}
+            >
+              No
+            </Button>
+            <Button type="button" onClick={confirmOwnerChange}>
+              Yes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-

@@ -379,6 +379,44 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
                   <TooltipTrigger asChild>
                     <Link
                       prefetch={false}
+                      href="/dashboard/crm/overview"
+                      onClick={() => setSidebarOpen(false)}
+                      className="w-full"
+                    >
+                      <Button
+                        variant={
+                          pathname === "/dashboard/crm/overview"
+                            ? "secondary"
+                            : "ghost"
+                        }
+                        className={`w-full h-10 justify-start relative min-h-[40px] ${sidebarCollapsed ? "lg:justify-center lg:px-0" : ""}`}
+                      >
+                        <BarChart3
+                          className={`h-5 w-5 flex-shrink-0 ${sidebarCollapsed ? "lg:mr-0" : "mr-3"}`}
+                          style={{ color: "#1976B8" }}
+                        />
+                        <span
+                          className={`text-sm font-medium ${sidebarCollapsed ? "lg:hidden" : ""}`}
+                        >
+                          Overview
+                        </span>
+                        {pathname === "/dashboard/crm/overview" && (
+                          <div
+                            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full"
+                            style={{ backgroundColor: "#1976B8" }}
+                          />
+                        )}
+                      </Button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>
+                    Overview
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      prefetch={false}
                       href="/dashboard/crm/leads"
                       onClick={() => setSidebarOpen(false)}
                       className="w-full"
